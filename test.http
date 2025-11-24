@@ -1,0 +1,14 @@
+### Test root endpoint
+GET http://127.0.0.1:8000/
+
+###
+
+### Test responses endpoint with query parameter
+POST http://127.0.0.1:8000/responses
+Content-Type: application/json
+
+{
+    "ask": "What is the capital of France?"
+}
+
+###
