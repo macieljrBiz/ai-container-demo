@@ -116,8 +116,8 @@ ai-container-demo/
 
 ### 1️⃣ Container Apps Deployment
 
-#### Using Bicep (One-Click Deploy)
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FmacieljrBiz%2Fai-container-demo%2Fmain%2Finfrastructure%2Fcontainer-app.json)
+#### Using ARM Template (One-Click Deploy)
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FmacieljrBiz%2Fai-container-demo%2Frefs%2Fheads%2Fmain%2Finfrastructure%2Fcontainer-app.json)
 
 #### Using Terraform
 ```bash
@@ -161,8 +161,8 @@ az containerapp create \
 
 ### 2️⃣ Azure Functions Deployment
 
-#### Using Bicep (One-Click Deploy)
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FmacieljrBiz%2Fai-container-demo%2Fmain%2Finfrastructure%2Fazure-functions.json)
+#### Using ARM Template (One-Click Deploy)
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FmacieljrBiz%2Fai-container-demo%2Frefs%2Fheads%2Fmain%2Finfrastructure%2Fazure-functions.json)
 
 #### Using Terraform
 ```bash
