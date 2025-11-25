@@ -243,31 +243,6 @@ az role assignment create \
 
 ---
 
-## 💰 Cost Analysis
-
-### Container Apps (0.25 vCPU, 0.5 GiB)
-- **Idle (scaled to 0)**: $0/hour
-- **Active**: ~$0.048/hour
-  - vCPU: 0.25 × $0.0000024/second × 3600 = $0.0216/hour
-  - Memory: 0.5 × $0.0000027/second × 3600 = $0.00486/hour
-- **Load Test (166 requests, 10 min)**: ~$0.014
-  - Scaled 1→5 replicas
-  - Total duration: ~10 minutes
-
-### Azure Functions (Consumption Plan)
-- **Idle**: $0/month
-- **Execution**: $0.0000002/execution + $0.000016/GB-s
-- **Example (166 requests, 1 second each, 512 MB)**:
-  - Executions: 166 × $0.0000002 = $0.0000332
-  - Compute: 166 × 1s × 0.5GB × $0.000016 = $0.001328
-  - **Total**: ~$0.0014
-
-### Azure Functions (Premium EP1)
-- **Always-on**: ~$146/month
-- **Includes**: 1 vCPU, 3.5 GB RAM, unlimited executions
-
----
-
 ## 🧪 Testing
 
 ### Using REST Client (VS Code Extension)
@@ -372,3 +347,4 @@ Feel free to submit issues or pull requests to improve this demo!
 For questions or feedback, reach out to:
 - Andressa Siqueira - [ansiqueira@microsoft.com](mailto:ansiqueira@microsoft.com)
 - Vicente Maciel Jr - [vicentem@microsoft.com](mailto:vicentem@microsoft.com)
+
