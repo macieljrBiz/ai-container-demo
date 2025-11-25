@@ -1,7 +1,4 @@
 // Parameters
-@description('Name of the resource group')
-param resourceGroupName string = 'rg-ai-container-demo'
-
 @description('Azure region')
 param location string = 'eastus'
 
@@ -16,9 +13,6 @@ param azureOpenAIEndpoint string
 
 @description('Azure OpenAI deployment name')
 param azureOpenAIDeployment string = 'gpt-4'
-
-@description('Resource group containing Azure OpenAI resource')
-param azureOpenAIResourceGroup string
 
 // Azure Container Registry
 resource acr 'Microsoft.ContainerRegistry/registries@2023-01-01-preview' = {
@@ -122,22 +116,12 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
   }
 }
 
-// Get Azure OpenAI Resource
-resource openAI 'Microsoft.CognitiveServices/accounts@2023-05-01' existing = {
-  name: split(azureOpenAIEndpoint, '/')[2]
-  scope: resourceGroup(azureOpenAIResourceGroup)
-}
-
-// Role Assignment - Cognitive Services OpenAI User
-resource roleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(openAI.id, containerApp.id, 'Cognitive Services OpenAI User')
-  scope: openAI
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd')
-    principalId: containerApp.identity.principalId
-    principalType: 'ServicePrincipal'
-  }
-}
+// Note: Role assignment for Azure OpenAI must be done separately
+// using Azure CLI or Portal due to cross-resource-group scope limitations in Bicep
+// Run this command after deployment:
+// az role assignment create --assignee <containerApp.identity.principalId> \
+//   --role "Cognitive Services OpenAI User" \
+//   --scope /subscriptions/<subscription-id>/resourceGroups/<openai-rg>/providers/Microsoft.CognitiveServices/accounts/<openai-name>
 
 // Outputs
 output containerAppUrl string = 'https://${containerApp.properties.configuration.ingress.fqdn}'
