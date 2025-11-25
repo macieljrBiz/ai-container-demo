@@ -165,6 +165,8 @@ terraform init
 terraform plan -var-file="azure-functions.tfvars"
 terraform apply -var-file="azure-functions.tfvars"
 ```
+#### Using Bicep (One-Click Deploy)
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FmacieljrBiz%2Fai-container-demo%2Fmain%2Finfrastructure%2Fcontainer-app.bicep)
 
 #### Using Bicep
 ```bash
@@ -347,4 +349,5 @@ Feel free to submit issues or pull requests to improve this demo!
 For questions or feedback, reach out to:
 - Andressa Siqueira - [ansiqueira@microsoft.com](mailto:ansiqueira@microsoft.com)
 - Vicente Maciel Jr - [vicentem@microsoft.com](mailto:vicentem@microsoft.com)
+
 
