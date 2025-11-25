@@ -1,0 +1,47 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+ENV/
+env/
+
+# Azure Functions
+local.settings.json
+.python_packages/
+.vscode/
+__blobstorage__/
+__queuestorage__/
+__azurite_db*__.json
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+*.tfvars
+!*.tfvars.example
+
+# Bicep
+*.bicepparam
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
