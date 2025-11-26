@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.38.33.27573",
-      "templateHash": "1959833980888788540"
+      "templateHash": "7895581017694652828"
     }
   },
   "parameters": {
@@ -92,7 +92,7 @@
       "kind": "StorageV2",
       "properties": {
         "minimumTlsVersion": "TLS1_2",
-        "allowSharedKeyAccess": true
+        "allowSharedKeyAccess": false
       }
     },
     {
@@ -148,10 +148,6 @@
         "retentionInterval": "PT1H",
         "timeout": "PT30M",
         "cleanupPreference": "OnSuccess",
-        "storageAccountSettings": {
-          "storageAccountName": "[variables('storageName')]",
-          "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageName')), '2023-01-01').keys[0].value]"
-        },
         "environmentVariables": [
           {
             "name": "ACR_NAME",
@@ -172,7 +168,6 @@
         "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]",
         "[extensionResourceId(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), 'Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName')), 'AcrPush'))]",
         "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName'))]",
-        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageName'))]",
         "[extensionResourceId(resourceId('Microsoft.Storage/storageAccounts', variables('storageName')), 'Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.Storage/storageAccounts', variables('storageName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName')), 'StorageBlobDataContributor'))]"
       ]
     },

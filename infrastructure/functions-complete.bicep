@@ -67,7 +67,7 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   kind: 'StorageV2'
   properties: {
     minimumTlsVersion: 'TLS1_2'
-    allowSharedKeyAccess: true
+    allowSharedKeyAccess: false
   }
 }
 
@@ -146,10 +146,6 @@ resource buildScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
     retentionInterval: 'P1D'
     timeout: 'PT30M'
     cleanupPreference: 'OnSuccess'
-    storageAccountSettings: {
-      storageAccountName: storageAccount.name
-      storageAccountKey: storageAccount.listKeys().keys[0].value
-    }
     environmentVariables: [
       {
         name: 'ACR_NAME'
