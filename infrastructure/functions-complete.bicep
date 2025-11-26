@@ -55,7 +55,7 @@ resource acr 'Microsoft.ContainerRegistry/registries@2023-01-01-preview' = {
 }
 
 // ============================================================================
-// 2. STORAGE ACCOUNT (para Functions e Deployment Scripts)
+// 2. STORAGE ACCOUNT (para Azure Functions)
 // ============================================================================
 
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
@@ -111,17 +111,6 @@ resource acrPushRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   scope: acr
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '8311e382-0749-4cb8-b61a-304f252e45ec') // AcrPush
-    principalId: managedIdentityForBuild.properties.principalId
-    principalType: 'ServicePrincipal'
-  }
-}
-
-// Permissão para acessar Storage Account
-resource storageBlobRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(storageAccount.id, managedIdentityForBuild.id, 'StorageBlobDataContributor')
-  scope: storageAccount
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe') // Storage Blob Data Contributor
     principalId: managedIdentityForBuild.properties.principalId
     principalType: 'ServicePrincipal'
   }

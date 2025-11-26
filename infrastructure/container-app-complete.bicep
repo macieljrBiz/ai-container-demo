@@ -41,7 +41,6 @@ param gitBranch string = 'main'
 
 var logAnalyticsName = 'log-${containerAppName}'
 var containerAppEnvName = 'env-${containerAppName}'
-var storageName = 'st${uniqueString(resourceGroup().id)}'
 var buildScriptName = 'build-${containerAppName}'
 var managedIdentityName = 'id-build-${containerAppName}'
 
@@ -61,24 +60,7 @@ resource acr 'Microsoft.ContainerRegistry/registries@2023-01-01-preview' = {
 }
 
 // ============================================================================
-// 2. STORAGE ACCOUNT (necessário para Deployment Scripts)
-// ============================================================================
-
-resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
-  name: storageName
-  location: location
-  sku: {
-    name: 'Standard_LRS'
-  }
-  kind: 'StorageV2'
-  properties: {
-    minimumTlsVersion: 'TLS1_2'
-    allowSharedKeyAccess: false
-  }
-}
-
-// ============================================================================
-// 3. MANAGED IDENTITY PARA DEPLOYMENT SCRIPT
+// 2. MANAGED IDENTITY PARA DEPLOYMENT SCRIPT
 // ============================================================================
 
 resource managedIdentityForBuild 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
@@ -97,19 +79,8 @@ resource acrPushRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   }
 }
 
-// Permissão para acessar Storage Account
-resource storageBlobRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(storageAccount.id, managedIdentityForBuild.id, 'StorageBlobDataContributor')
-  scope: storageAccount
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe') // Storage Blob Data Contributor
-    principalId: managedIdentityForBuild.properties.principalId
-    principalType: 'ServicePrincipal'
-  }
-}
-
 // ============================================================================
-// 4. DEPLOYMENT SCRIPT - BUILD DA IMAGEM NO ACR
+// 3. DEPLOYMENT SCRIPT - BUILD DA IMAGEM NO ACR
 // ============================================================================
 
 resource buildScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
@@ -175,7 +146,6 @@ resource buildScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
   }
   dependsOn: [
     acrPushRole
-    storageBlobRole
   ]
 }
 
