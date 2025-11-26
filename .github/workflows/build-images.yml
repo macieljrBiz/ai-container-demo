@@ -1,0 +1,77 @@
+name: Build and Push Container Images
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'container-app/**'
+      - 'azure-functions/**'
+      - '.github/workflows/build-images.yml'
+  workflow_dispatch:
+
+env:
+  REGISTRY_NAME: acraicondemo
+  CONTAINER_APP_IMAGE: ai-container-app
+  FUNCTIONS_IMAGE: ai-functions-app
+
+jobs:
+  build-container-app:
+    name: Build Container App Image
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Azure Login
+      uses: azure/login@v2
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Build and push Container App image to ACR
+      run: |
+        az acr build \
+          --registry ${{ env.REGISTRY_NAME }} \
+          --image ${{ env.CONTAINER_APP_IMAGE }}:${{ github.sha }} \
+          --image ${{ env.CONTAINER_APP_IMAGE }}:latest \
+          --file container-app/Dockerfile \
+          ./container-app
+
+    - name: Update Container App (if exists)
+      continue-on-error: true
+      run: |
+        az containerapp update \
+          --name ai-container-app \
+          --resource-group rg-ai-container-demo \
+          --image ${{ env.REGISTRY_NAME }}.azurecr.io/${{ env.CONTAINER_APP_IMAGE }}:latest
+
+  build-functions:
+    name: Build Functions Image
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Azure Login
+      uses: azure/login@v2
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Build and push Functions image to ACR
+      run: |
+        az acr build \
+          --registry ${{ env.REGISTRY_NAME }} \
+          --image ${{ env.FUNCTIONS_IMAGE }}:${{ github.sha }} \
+          --image ${{ env.FUNCTIONS_IMAGE }}:latest \
+          --file azure-functions/Dockerfile \
+          ./azure-functions
+
+    - name: Update Function App (if exists)
+      continue-on-error: true
+      run: |
+        az functionapp config container set \
+          --name funcappaidessa \
+          --resource-group rg-ai-functions-demo \
+          --docker-custom-image-name ${{ env.REGISTRY_NAME }}.azurecr.io/${{ env.FUNCTIONS_IMAGE }}:latest \
+          --docker-registry-server-url https://${{ env.REGISTRY_NAME }}.azurecr.io
