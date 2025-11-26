@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.38.33.27573",
-      "templateHash": "11060315046272812670"
+      "templateHash": "404407802440362843"
     }
   },
   "parameters": {
@@ -126,7 +126,7 @@
           "containers": [
             {
               "name": "ai-container-app",
-              "image": "[format('{0}/ai-container-app:latest', reference(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), '2023-01-01-preview').loginServer)]",
+              "image": "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest",
               "resources": {
                 "cpu": "[json('0.25')]",
                 "memory": "0.5Gi"

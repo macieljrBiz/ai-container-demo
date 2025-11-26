@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.38.33.27573",
-      "templateHash": "8203804773740362607"
+      "templateHash": "3620181365183837835"
     }
   },
   "parameters": {
@@ -114,7 +114,7 @@
       "properties": {
         "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', format('asp-{0}', parameters('functionAppName')))]",
         "siteConfig": {
-          "linuxFxVersion": "[format('DOCKER|{0}/ai-functions-app:latest', reference(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), '2023-01-01-preview').loginServer)]",
+          "linuxFxVersion": "PYTHON|3.11",
           "appSettings": [
             {
               "name": "AzureWebJobsStorage",
@@ -145,22 +145,6 @@
               "value": "[parameters('azureOpenAIDeployment')]"
             },
             {
-              "name": "DOCKER_REGISTRY_SERVER_URL",
-              "value": "[format('https://{0}', reference(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), '2023-01-01-preview').loginServer)]"
-            },
-            {
-              "name": "DOCKER_REGISTRY_SERVER_USERNAME",
-              "value": "[listCredentials(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), '2023-01-01-preview').username]"
-            },
-            {
-              "name": "DOCKER_REGISTRY_SERVER_PASSWORD",
-              "value": "[listCredentials(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), '2023-01-01-preview').passwords[0].value]"
-            },
-            {
-              "name": "WEBSITES_ENABLE_APP_SERVICE_STORAGE",
-              "value": "false"
-            },
-            {
               "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
               "value": "[reference(resourceId('Microsoft.Insights/components', format('ai-{0}', parameters('functionAppName'))), '2020-02-02').InstrumentationKey]"
             },
@@ -173,7 +157,6 @@
         }
       },
       "dependsOn": [
-        "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]",
         "[resourceId('Microsoft.Insights/components', format('ai-{0}', parameters('functionAppName')))]",
         "[resourceId('Microsoft.Web/serverfarms', format('asp-{0}', parameters('functionAppName')))]",
         "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"

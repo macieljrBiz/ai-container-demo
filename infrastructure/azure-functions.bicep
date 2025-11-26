@@ -78,7 +78,7 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
   properties: {
     serverFarmId: appServicePlan.id
     siteConfig: {
-      linuxFxVersion: 'DOCKER|${acr.properties.loginServer}/ai-functions-app:latest'
+      linuxFxVersion: 'PYTHON|3.11'
       appSettings: [
         {
           name: 'AzureWebJobsStorage'
@@ -107,22 +107,6 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
         {
           name: 'AZURE_OPENAI_DEPLOYMENT'
           value: azureOpenAIDeployment
-        }
-        {
-          name: 'DOCKER_REGISTRY_SERVER_URL'
-          value: 'https://${acr.properties.loginServer}'
-        }
-        {
-          name: 'DOCKER_REGISTRY_SERVER_USERNAME'
-          value: acr.listCredentials().username
-        }
-        {
-          name: 'DOCKER_REGISTRY_SERVER_PASSWORD'
-          value: acr.listCredentials().passwords[0].value
-        }
-        {
-          name: 'WEBSITES_ENABLE_APP_SERVICE_STORAGE'
-          value: 'false'
         }
         {
           name: 'APPINSIGHTS_INSTRUMENTATIONKEY'

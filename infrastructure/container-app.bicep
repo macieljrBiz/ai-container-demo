@@ -91,7 +91,7 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
       containers: [
         {
           name: 'ai-container-app'
-          image: '${acr.properties.loginServer}/ai-container-app:latest'
+          image: 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
           resources: {
             cpu: json('0.25')
             memory: '0.5Gi'
