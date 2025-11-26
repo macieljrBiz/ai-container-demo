@@ -38,7 +38,26 @@ resource acr 'Microsoft.ContainerRegistry/registries@2023-01-01-preview' = {
 }
 
 // ============================================================================
-// 2. ACR TASK – build da imagem automaticamente (Azure only - sem GitHub)
+// 2. MANAGED IDENTITY para Deployment Script
+// ============================================================================
+resource scriptIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: 'id-acr-build-script'
+  location: resourceGroup().location
+}
+
+// Permissão para executar ACR Tasks
+resource acrContributorRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(acr.id, scriptIdentity.id, 'AcrContributor')
+  scope: acr
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c') // Contributor
+    principalId: scriptIdentity.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// ============================================================================
+// 3. ACR TASK – build da imagem automaticamente (Azure only - sem GitHub)
 // ============================================================================
 resource acrTask 'Microsoft.ContainerRegistry/registries/tasks@2023-01-01-preview' = {
   parent: acr
@@ -70,29 +89,38 @@ resource acrTask 'Microsoft.ContainerRegistry/registries/tasks@2023-01-01-previe
 }
 
 // ============================================================================
-// 3. RUN ACR TASK – via Deployment Script (executa o build AGORA!)
+// 4. RUN ACR TASK – via Deployment Script (executa o build AGORA!)
 // ============================================================================
 resource runBuild 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
   name: 'runBuildImage'
   location: resourceGroup().location
   kind: 'AzureCLI'
-  identity: { type: 'UserAssigned'
-    userAssignedIdentities: {} }
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${scriptIdentity.id}': {}
+    }
+  }
   properties: {
     azCliVersion: '2.62.0'
     retentionInterval: 'PT1H'
     timeout: 'PT30M'
     environmentVariables: [
-      { name: 'ACR_NAME'
-        value: acrName }
+      {
+        name: 'ACR_NAME'
+        value: acrName
+      }
     ]
     scriptContent: 'echo "### Iniciando build da imagem no Azure..." && az acr task run --registry $ACR_NAME --name buildImage'
   }
-  dependsOn: [ acrTask ]
+  dependsOn: [
+    acrTask
+    acrContributorRole
+  ]
 }
 
 // ============================================================================
-// 4. LOG ANALYTICS + ENVIRONMENT
+// 5. LOG ANALYTICS + ENVIRONMENT
 // ============================================================================
 var logAnalyticsName = 'log-${containerAppName}'
 var containerAppEnvName = 'env-${containerAppName}'
@@ -121,7 +149,7 @@ resource containerAppEnv 'Microsoft.App/managedEnvironments@2023-05-01' = {
 }
 
 // ============================================================================
-// 5. CONTAINER APP – usa imagem construída pelo ACR Task
+// 6. CONTAINER APP – usa imagem construída pelo ACR Task
 // ============================================================================
 resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
   name: containerAppName

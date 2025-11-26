@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.38.33.27573",
-      "templateHash": "15466378405266639731"
+      "templateHash": "16733504371893488107"
     }
   },
   "parameters": {
@@ -67,6 +67,27 @@
       }
     },
     {
+      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+      "apiVersion": "2023-01-31",
+      "name": "id-acr-build-script",
+      "location": "[resourceGroup().location]"
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[format('Microsoft.ContainerRegistry/registries/{0}', parameters('acrName'))]",
+      "name": "[guid(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'id-acr-build-script'), 'AcrContributor')]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'id-acr-build-script'), '2023-01-31').principalId]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'id-acr-build-script')]"
+      ]
+    },
+    {
       "type": "Microsoft.ContainerRegistry/registries/tasks",
       "apiVersion": "2023-01-01-preview",
       "name": "[format('{0}/{1}', parameters('acrName'), 'buildImage')]",
@@ -108,7 +129,9 @@
       "kind": "AzureCLI",
       "identity": {
         "type": "UserAssigned",
-        "userAssignedIdentities": {}
+        "userAssignedIdentities": {
+          "[format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'id-acr-build-script'))]": {}
+        }
       },
       "properties": {
         "azCliVersion": "2.62.0",
@@ -123,7 +146,9 @@
         "scriptContent": "echo \"### Iniciando build da imagem no Azure...\" && az acr task run --registry $ACR_NAME --name buildImage"
       },
       "dependsOn": [
-        "[resourceId('Microsoft.ContainerRegistry/registries/tasks', parameters('acrName'), 'buildImage')]"
+        "[extensionResourceId(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), 'Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'id-acr-build-script'), 'AcrContributor'))]",
+        "[resourceId('Microsoft.ContainerRegistry/registries/tasks', parameters('acrName'), 'buildImage')]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'id-acr-build-script')]"
       ]
     },
     {
