@@ -114,6 +114,25 @@ ai-container-demo/
 
 ## 📦 Deployment Options
 
+### 🚀 Opção 1: Script PowerShell All-in-One (RECOMENDADO)
+
+**Ideal para clientes finais - deploy completo sem GitHub!**
+
+```powershell
+# No Azure Cloud Shell ou PowerShell local
+./scripts/build-and-deploy.ps1
+```
+
+**O que faz:**
+- ✅ Build das imagens no ACR (na nuvem, sem Docker local)
+- ✅ Deploy completo da infraestrutura (Container Apps + Functions)
+- ✅ Configuração de Managed Identity e permissões
+- ✅ Tudo automatizado em ~5-10 minutos
+
+📖 **[Guia Completo para Clientes](./scripts/README-CLIENT.md)**
+
+---
+
 ### 1️⃣ Container Apps Deployment
 
 #### Using ARM Template (One-Click Deploy)
