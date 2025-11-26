@@ -1,7 +1,0 @@
-resource_group_name         = "rg-ai-container-demo"
-location                    = "eastus"
-acr_name                    = "acraicondemo3700"
-container_app_name          = "ai-container-app"
-azure_openai_endpoint       = "https://ansiqueira-3288-resource.cognitiveservices.azure.com/openai/v1/"
-azure_openai_deployment     = "gpt-5.1"
-azure_openai_resource_group = "rg-ansiqueira-3288"

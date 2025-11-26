@@ -1,8 +1,0 @@
-resource_group_name         = "rg-ai-functions-demo"
-location                    = "brazilsouth"
-acr_name                    = "acraifunctions3700"
-function_app_name           = "ai-functions-app"
-storage_account_name        = "staifunctions3700"
-azure_openai_endpoint       = "https://ansiqueira-3288-resource.cognitiveservices.azure.com/openai/v1/"
-azure_openai_deployment     = "gpt-5.1"
-azure_openai_resource_group = "rg-ansiqueira-3288"
