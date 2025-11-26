@@ -119,7 +119,7 @@ resource buildScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
   identity: {
     type: 'UserAssigned'
     userAssignedIdentities: {
-      '\${managedIdentityForBuild.id}': {}
+      '${managedIdentityForBuild.id}': {}
     }
   }
   properties: {

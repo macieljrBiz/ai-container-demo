@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.38.33.27573",
-      "templateHash": "755496167764853123"
+      "templateHash": "1959833980888788540"
     }
   },
   "parameters": {
@@ -140,7 +140,7 @@
       "identity": {
         "type": "UserAssigned",
         "userAssignedIdentities": {
-          "${managedIdentityForBuild.id}": {}
+          "[format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName')))]": {}
         }
       },
       "properties": {
@@ -171,6 +171,7 @@
       "dependsOn": [
         "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]",
         "[extensionResourceId(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), 'Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName')), 'AcrPush'))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName'))]",
         "[resourceId('Microsoft.Storage/storageAccounts', variables('storageName'))]",
         "[extensionResourceId(resourceId('Microsoft.Storage/storageAccounts', variables('storageName')), 'Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.Storage/storageAccounts', variables('storageName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName')), 'StorageBlobDataContributor'))]"
       ]
