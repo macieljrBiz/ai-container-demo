@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.38.33.27573",
-      "templateHash": "16733504371893488107"
+      "templateHash": "16669300592846550929"
     }
   },
   "parameters": {
@@ -88,43 +88,9 @@
       ]
     },
     {
-      "type": "Microsoft.ContainerRegistry/registries/tasks",
-      "apiVersion": "2023-01-01-preview",
-      "name": "[format('{0}/{1}', parameters('acrName'), 'buildImage')]",
-      "location": "[resourceGroup().location]",
-      "properties": {
-        "status": "Enabled",
-        "agentConfiguration": {
-          "cpu": 2
-        },
-        "platform": {
-          "os": "Linux",
-          "architecture": "amd64"
-        },
-        "source": {
-          "git": {
-            "repositoryUrl": "[parameters('gitRepoUrl')]",
-            "branch": "[parameters('gitBranch')]"
-          }
-        },
-        "step": {
-          "type": "Docker",
-          "contextPath": "container-app",
-          "dockerFilePath": "container-app/Dockerfile",
-          "isPushEnabled": true,
-          "imageNames": [
-            "ai-container-app:latest"
-          ]
-        }
-      },
-      "dependsOn": [
-        "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]"
-      ]
-    },
-    {
       "type": "Microsoft.Resources/deploymentScripts",
       "apiVersion": "2023-08-01",
-      "name": "runBuildImage",
+      "name": "buildImage",
       "location": "[resourceGroup().location]",
       "kind": "AzureCLI",
       "identity": {
@@ -141,13 +107,20 @@
           {
             "name": "ACR_NAME",
             "value": "[parameters('acrName')]"
+          },
+          {
+            "name": "GIT_REPO_URL",
+            "value": "[parameters('gitRepoUrl')]"
+          },
+          {
+            "name": "GIT_BRANCH",
+            "value": "[parameters('gitBranch')]"
           }
         ],
-        "scriptContent": "echo \"### Iniciando build da imagem no Azure...\" && az acr task run --registry $ACR_NAME --name buildImage"
+        "scriptContent": "      echo \"### Clonando repositório...\"\r\n      git clone -b $GIT_BRANCH $GIT_REPO_URL repo\r\n      cd repo\r\n      \r\n      echo \"### Fazendo build no ACR...\"\r\n      az acr build \\\r\n        --registry $ACR_NAME \\\r\n        --image ai-container-app:latest \\\r\n        --file ./container-app/Dockerfile \\\r\n        ./container-app\r\n      \r\n      echo \"### Build concluído!\"\r\n    "
       },
       "dependsOn": [
         "[extensionResourceId(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), 'Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'id-acr-build-script'), 'AcrContributor'))]",
-        "[resourceId('Microsoft.ContainerRegistry/registries/tasks', parameters('acrName'), 'buildImage')]",
         "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'id-acr-build-script')]"
       ]
     },
@@ -233,8 +206,8 @@
       },
       "dependsOn": [
         "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]",
-        "[resourceId('Microsoft.App/managedEnvironments', variables('containerAppEnvName'))]",
-        "[resourceId('Microsoft.Resources/deploymentScripts', 'runBuildImage')]"
+        "[resourceId('Microsoft.Resources/deploymentScripts', 'buildImage')]",
+        "[resourceId('Microsoft.App/managedEnvironments', variables('containerAppEnvName'))]"
       ]
     }
   ],

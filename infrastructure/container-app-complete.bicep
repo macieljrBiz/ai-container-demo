@@ -57,42 +57,10 @@ resource acrContributorRole 'Microsoft.Authorization/roleAssignments@2022-04-01'
 }
 
 // ============================================================================
-// 3. ACR TASK – build da imagem automaticamente (Azure only - sem GitHub)
+// 3. DEPLOYMENT SCRIPT – Build da imagem usando az acr build (mais simples!)
 // ============================================================================
-resource acrTask 'Microsoft.ContainerRegistry/registries/tasks@2023-01-01-preview' = {
-  parent: acr
+resource buildImage 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
   name: 'buildImage'
-  location: resourceGroup().location
-  properties: {
-    status: 'Enabled'
-    agentConfiguration: { cpu: 2 }
-    platform: {
-      os: 'Linux'
-      architecture: 'amd64'
-    }
-    source: {
-      git: {
-        repositoryUrl: gitRepoUrl
-        branch: gitBranch
-      }
-    }
-    step: {
-      type: 'Docker'
-      contextPath: 'container-app'          // PASTA dentro do repositório
-      dockerFilePath: 'container-app/Dockerfile'
-      isPushEnabled: true
-      imageNames: [
-        'ai-container-app:latest'
-      ]
-    }
-  }
-}
-
-// ============================================================================
-// 4. RUN ACR TASK – via Deployment Script (executa o build AGORA!)
-// ============================================================================
-resource runBuild 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
-  name: 'runBuildImage'
   location: resourceGroup().location
   kind: 'AzureCLI'
   identity: {
@@ -110,11 +78,31 @@ resource runBuild 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
         name: 'ACR_NAME'
         value: acrName
       }
+      {
+        name: 'GIT_REPO_URL'
+        value: gitRepoUrl
+      }
+      {
+        name: 'GIT_BRANCH'
+        value: gitBranch
+      }
     ]
-    scriptContent: 'echo "### Iniciando build da imagem no Azure..." && az acr task run --registry $ACR_NAME --name buildImage'
+    scriptContent: '''
+      echo "### Clonando repositório..."
+      git clone -b $GIT_BRANCH $GIT_REPO_URL repo
+      cd repo
+      
+      echo "### Fazendo build no ACR..."
+      az acr build \
+        --registry $ACR_NAME \
+        --image ai-container-app:latest \
+        --file ./container-app/Dockerfile \
+        ./container-app
+      
+      echo "### Build concluído!"
+    '''
   }
   dependsOn: [
-    acrTask
     acrContributorRole
   ]
 }
@@ -197,7 +185,7 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
       }
     }
   }
-  dependsOn: [ runBuild ]  // Só cria app depois da imagem construída!
+  dependsOn: [ buildImage ]  // Só cria app depois da imagem construída!
 }
 
 // ============================================================================
