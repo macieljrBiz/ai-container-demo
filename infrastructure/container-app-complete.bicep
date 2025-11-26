@@ -1,15 +1,32 @@
 // ============================================================================
-// PUBLIC CONTAINER APP DEPLOYMENT (Build via GitHub Actions)
+// CONTAINER APP com build automático via ACR Task (Azure only - sem GitHub Actions)
 // ============================================================================
+
 targetScope = 'resourceGroup'
 
-// === PARÂMETROS =============================================================
-param containerAppName string = 'ai-container-app'
-param acrName string = 'acr${uniqueString(resourceGroup().id)}'
-param containerImageName string = 'ai-container-app'
+// ============================================================================
+// PARÂMETROS
+// ============================================================================
+@description('Nome do Container App')
+param containerAppName string
+
+@description('Nome do Azure Container Registry (ACR)')
+param acrName string
+
+@description('Endpoint do modelo Azure OpenAI (ex: https://xxx.openai.azure.com/)')
+param azureOpenAIEndpoint string
+
+@description('Nome do deployment do Azure OpenAI (ex: gpt-4o)')
+param azureOpenAIDeployment string = 'gpt-4o'
+
+@description('Repositório Git contendo o Dockerfile')
+param gitRepoUrl string = 'https://github.com/macieljrBiz/ai-container-demo.git'
+
+@description('Branch do repositório Git')
+param gitBranch string = 'main'
 
 // ============================================================================
-// 1. ACR (sem chave, sem admin user)
+// 1. ACR – Registro de container
 // ============================================================================
 resource acr 'Microsoft.ContainerRegistry/registries@2023-01-01-preview' = {
   name: acrName
@@ -17,14 +34,68 @@ resource acr 'Microsoft.ContainerRegistry/registries@2023-01-01-preview' = {
   sku: { name: 'Basic' }
   properties: {
     adminUserEnabled: false
-    anonymousPullEnabled: false
   }
 }
 
 // ============================================================================
-// 2. LOG ANALYTICS
+// 2. ACR TASK – build da imagem automaticamente (Azure only - sem GitHub)
+// ============================================================================
+resource acrTask 'Microsoft.ContainerRegistry/registries/tasks@2023-01-01-preview' = {
+  parent: acr
+  name: 'buildImage'
+  location: resourceGroup().location
+  properties: {
+    status: 'Enabled'
+    agentConfiguration: { cpu: 2 }
+    platform: {
+      os: 'Linux'
+      architecture: 'amd64'
+    }
+    source: {
+      git: {
+        repositoryUrl: gitRepoUrl
+        branch: gitBranch
+      }
+    }
+    step: {
+      type: 'Docker'
+      contextPath: 'container-app'          // PASTA dentro do repositório
+      dockerFilePath: 'container-app/Dockerfile'
+      isPushEnabled: true
+      imageNames: [
+        'ai-container-app:latest'
+      ]
+    }
+  }
+}
+
+// ============================================================================
+// 3. RUN ACR TASK – via Deployment Script (executa o build AGORA!)
+// ============================================================================
+resource runBuild 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
+  name: 'runBuildImage'
+  location: resourceGroup().location
+  kind: 'AzureCLI'
+  identity: { type: 'UserAssigned'
+    userAssignedIdentities: {} }
+  properties: {
+    azCliVersion: '2.62.0'
+    retentionInterval: 'PT1H'
+    timeout: 'PT30M'
+    environmentVariables: [
+      { name: 'ACR_NAME'
+        value: acrName }
+    ]
+    scriptContent: 'echo "### Iniciando build da imagem no Azure..." && az acr task run --registry $ACR_NAME --name buildImage'
+  }
+  dependsOn: [ acrTask ]
+}
+
+// ============================================================================
+// 4. LOG ANALYTICS + ENVIRONMENT
 // ============================================================================
 var logAnalyticsName = 'log-${containerAppName}'
+var containerAppEnvName = 'env-${containerAppName}'
 
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
   name: logAnalyticsName
@@ -34,11 +105,6 @@ resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
     retentionInDays: 30
   }
 }
-
-// ============================================================================
-// 3. CONTAINER APP ENVIRONMENT
-// ============================================================================
-var containerAppEnvName = 'env-${containerAppName}'
 
 resource containerAppEnv 'Microsoft.App/managedEnvironments@2023-05-01' = {
   name: containerAppEnvName
@@ -55,7 +121,7 @@ resource containerAppEnv 'Microsoft.App/managedEnvironments@2023-05-01' = {
 }
 
 // ============================================================================
-// 4. CONTAINER APP (imagem será feita via GitHub Actions)
+// 5. CONTAINER APP – usa imagem construída pelo ACR Task
 // ============================================================================
 resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
   name: containerAppName
@@ -79,18 +145,45 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
     template: {
       containers: [
         {
-          name: 'ai-container-app'
-          image: '${acr.properties.loginServer}/${containerImageName}:latest'  // CI/CD atualiza isso
-          resources: { cpu: json('0.5'); memory: '1Gi' }
+          name: 'app'
+          image: '${acr.properties.loginServer}/ai-container-app:latest'
+          resources: {
+            cpu: json('0.5')
+            memory: '1Gi'
+          }
+          env: [
+            {
+              name: 'AZURE_OPENAI_ENDPOINT'
+              value: azureOpenAIEndpoint
+            }
+            {
+              name: 'AZURE_OPENAI_DEPLOYMENT'
+              value: azureOpenAIDeployment
+            }
+          ]
         }
       ]
+      scale: {
+        minReplicas: 1
+        maxReplicas: 3
+      }
     }
   }
+  dependsOn: [ runBuild ]  // Só cria app depois da imagem construída!
 }
 
 // ============================================================================
 // OUTPUTS
 // ============================================================================
-output url string = 'https://${containerApp.properties.configuration.ingress.fqdn}'
-output rg string = resourceGroup().name
+output containerAppUrl string = 'https://${containerApp.properties.configuration.ingress.fqdn}'
 output acrLoginServer string = acr.properties.loginServer
+output imageName string = '${acr.properties.loginServer}/ai-container-app:latest'
+output nextSteps string = '''
+🚀 Deploy concluído!
+
+Você pode verificar a imagem no ACR com:
+az acr repository list --name ${acrName}
+
+Ou listar os logs:
+az containerapp logs show --name ${containerAppName} --resource-group ${resourceGroup().name} --follow
+'''
