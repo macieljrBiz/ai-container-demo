@@ -89,7 +89,7 @@ resource acrPushRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (
   }
 }
 
-// Permissão Storage Blob
+// Permissão Storage Blob Data Owner
 resource storageBlobOwnerRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (buildLocal) {
   name: guid(storageAccount.id, managedIdentityForBuild.id, 'StorageBlobDataOwner')
   scope: storageAccount
@@ -118,6 +118,13 @@ resource buildScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = if (bu
     retentionInterval: 'PT1H'
     timeout: 'PT30M'
     cleanupPreference: 'OnSuccess'
+
+    // ⛔ SEM ESSA PROPRIEDADE → runtime tenta usar chave e dá erro!
+    storageAccountSettings: {
+      storageAccountName: storageAccount.name
+      authMode: 'login' // <<< ESSENCIAL!
+    }
+
     environmentVariables: [
       { name: 'ACR_NAME'; value: acr.name }
       { name: 'GIT_REPO_URL'; value: gitRepoUrl }
@@ -126,7 +133,7 @@ resource buildScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = if (bu
     scriptContent: '''
       az login --identity
 
-      Write-Output "==> Autenticando no ACR via Entra ID..."
+      Write-Output "==> Autenticando via Entra ID..."
       $acrToken = az acr login --name $env:ACR_NAME --expose-token --output json | ConvertFrom-Json
       az acr login --name $env:ACR_NAME --username 00000000-0000-0000-0000-000000000000 --password $acrToken.accessToken
 
@@ -224,7 +231,9 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
   ]
 }
 
-// ACR Pull
+// ============================================================================
+// PERMISSÃO ACR PULL
+// ============================================================================
 resource containerAppAcrPull 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(acr.id, containerApp.id, 'AcrPull')
   scope: acr
