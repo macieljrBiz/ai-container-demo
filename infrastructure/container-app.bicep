@@ -2,8 +2,10 @@
 @description('Azure region')
 param location string = 'eastus'
 
-@description('Name of the Azure Container Registry')
-param acrName string = 'acraicondemo'
+@description('Name of the Azure Container Registry (deve ser único globalmente)')
+@minLength(5)
+@maxLength(50)
+param acrName string
 
 @description('Name of the Container App')
 param containerAppName string = 'ai-container-app'

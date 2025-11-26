@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.38.33.27573",
-      "templateHash": "17696517808869991418"
+      "templateHash": "3461491495567709806"
     }
   },
   "parameters": {
@@ -18,9 +18,10 @@
     },
     "acrName": {
       "type": "string",
-      "defaultValue": "acraicondemo",
+      "minLength": 5,
+      "maxLength": 50,
       "metadata": {
-        "description": "Name of the Azure Container Registry"
+        "description": "Name of the Azure Container Registry (deve ser único globalmente)"
       }
     },
     "containerAppName": {
@@ -28,13 +29,6 @@
       "defaultValue": "ai-container-app",
       "metadata": {
         "description": "Name of the Container App"
-      }
-    },
-    "containerImage": {
-      "type": "string",
-      "defaultValue": "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest",
-      "metadata": {
-        "description": "Container image (format: registry/image:tag)"
       }
     },
     "azureOpenAIEndpoint": {
@@ -133,7 +127,7 @@
           "containers": [
             {
               "name": "ai-container-app",
-              "image": "[parameters('containerImage')]",
+              "image": "[format('{0}/ai-container-app:latest', reference(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), '2023-01-01-preview').loginServer)]",
               "resources": {
                 "cpu": "[json('0.25')]",
                 "memory": "0.5Gi"

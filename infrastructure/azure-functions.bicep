@@ -1,15 +1,21 @@
 // Parameters
 @description('Azure region')
-param location string = 'brazilsouth'
+param location string = 'eastus'
 
-@description('Name of the Azure Container Registry')
-param acrName string = 'acraifunctions'
+@description('Name of the Azure Container Registry (deve ser único globalmente)')
+@minLength(5)
+@maxLength(50)
+param acrName string
 
-@description('Name of the Function App')
-param functionAppName string = 'ai-functions-app'
+@description('Name of the Function App (deve ser único globalmente)')
+@minLength(2)
+@maxLength(60)
+param functionAppName string
 
-@description('Name of the Storage Account')
-param storageAccountName string = 'staifunctions'
+@description('Name of the Storage Account (deve ser único globalmente, apenas letras minúsculas e números)')
+@minLength(3)
+@maxLength(24)
+param storageAccountName string
 
 @description('Azure OpenAI endpoint URL')
 param azureOpenAIEndpoint string

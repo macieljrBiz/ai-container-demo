@@ -1,8 +1,7 @@
 // ============================================================================
-// ALL-IN-ONE DEPLOYMENT - Build + Deploy em um único Bicep
+// CONTAINER APP DEPLOYMENT - Build + Deploy
 // ============================================================================
-// Este template usa Deployment Scripts para fazer build das imagens no ACR
-// antes de criar os Container Apps e Functions
+// Deploy APENAS do Container App com build automático da imagem
 // ============================================================================
 
 targetScope = 'resourceGroup'
@@ -12,24 +11,25 @@ targetScope = 'resourceGroup'
 // ============================================================================
 
 @description('Nome do Azure Container Registry (deve ser único globalmente)')
+@minLength(5)
+@maxLength(50)
 param acrName string
 
 @description('Nome do Container App')
+@minLength(2)
+@maxLength(32)
 param containerAppName string = 'ai-container-app'
 
-@description('Nome do Azure Functions (deve ser único globalmente)')
-param functionAppName string
-
-@description('Endpoint do Azure OpenAI')
+@description('Endpoint do Azure OpenAI (ex: https://seu-recurso.openai.azure.com/)')
 param azureOpenAIEndpoint string
 
-@description('Nome do deployment do Azure OpenAI')
+@description('Nome do deployment do modelo no Azure OpenAI')
 param azureOpenAIDeployment string = 'gpt-4'
 
 @description('Location para os recursos')
 param location string = resourceGroup().location
 
-@description('URL do repositório Git (para fazer git clone e build)')
+@description('URL do repositório Git para fazer clone e build')
 param gitRepoUrl string = 'https://github.com/macieljrBiz/ai-container-demo.git'
 
 @description('Branch do repositório Git')
@@ -40,10 +40,10 @@ param gitBranch string = 'main'
 // ============================================================================
 
 var logAnalyticsName = 'log-${containerAppName}'
-var appInsightsName = 'ai-${functionAppName}'
 var containerAppEnvName = 'env-${containerAppName}'
 var storageName = 'st${uniqueString(resourceGroup().id)}'
-var buildScriptName = 'build-container-images'
+var buildScriptName = 'build-${containerAppName}'
+var managedIdentityName = 'id-build-${containerAppName}'
 
 // ============================================================================
 // 1. AZURE CONTAINER REGISTRY
@@ -77,7 +77,27 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
 }
 
 // ============================================================================
-// 3. DEPLOYMENT SCRIPT - BUILD DAS IMAGENS NO ACR
+// 3. MANAGED IDENTITY PARA DEPLOYMENT SCRIPT
+// ============================================================================
+
+resource managedIdentityForBuild 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: managedIdentityName
+  location: location
+}
+
+// Permissão para fazer push no ACR
+resource acrPushRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(acr.id, managedIdentityForBuild.id, 'AcrPush')
+  scope: acr
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '8311e382-0749-4cb8-b61a-304f252e45ec') // AcrPush
+    principalId: managedIdentityForBuild.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// ============================================================================
+// 4. DEPLOYMENT SCRIPT - BUILD DA IMAGEM NO ACR
 // ============================================================================
 
 resource buildScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
@@ -91,7 +111,7 @@ resource buildScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
     }
   }
   properties: {
-    azPowerShellVersion: '10.0'
+    azPowerShellVersion: '11.0'
     retentionInterval: 'P1D'
     timeout: 'PT30M'
     cleanupPreference: 'OnSuccess'
@@ -134,19 +154,6 @@ resource buildScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
         exit 1
       }
       
-      Write-Output "==> Build Azure Functions Image..."
-      az acr build `
-        --registry $env:ACR_NAME `
-        --image "ai-functions:latest" `
-        --image "ai-functions:$(Get-Date -Format 'yyyyMMdd-HHmmss')" `
-        --file "./azure-functions/Dockerfile" `
-        ./azure-functions
-      
-      if ($LASTEXITCODE -ne 0) {
-        Write-Error "Falha no build da imagem Azure Functions"
-        exit 1
-      }
-      
       Write-Output "==> Listando imagens criadas..."
       az acr repository list --name $env:ACR_NAME --output table
       
@@ -155,34 +162,12 @@ resource buildScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
       # Output para usar em outros recursos
       $DeploymentScriptOutputs = @{}
       $DeploymentScriptOutputs['containerAppImage'] = "$env:ACR_NAME.azurecr.io/ai-container-app:latest"
-      $DeploymentScriptOutputs['functionsImage'] = "$env:ACR_NAME.azurecr.io/ai-functions:latest"
       $DeploymentScriptOutputs['acrLoginServer'] = "$env:ACR_NAME.azurecr.io"
     '''
   }
   dependsOn: [
-    acr
-    storageAccount
+    acrPushRole
   ]
-}
-
-// ============================================================================
-// 4. MANAGED IDENTITY PARA DEPLOYMENT SCRIPT
-// ============================================================================
-
-resource managedIdentityForBuild 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
-  name: 'id-build-${containerAppName}'
-  location: location
-}
-
-// Permissão para fazer push no ACR
-resource acrPushRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(acr.id, managedIdentityForBuild.id, 'AcrPush')
-  scope: acr
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '8311e382-0749-4cb8-b61a-304f252e45ec') // AcrPush
-    principalId: managedIdentityForBuild.properties.principalId
-    principalType: 'ServicePrincipal'
-  }
 }
 
 // ============================================================================
@@ -201,21 +186,7 @@ resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
 }
 
 // ============================================================================
-// 6. APPLICATION INSIGHTS
-// ============================================================================
-
-resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
-  name: appInsightsName
-  location: location
-  kind: 'web'
-  properties: {
-    Application_Type: 'web'
-    WorkspaceResourceId: logAnalytics.id
-  }
-}
-
-// ============================================================================
-// 7. CONTAINER APPS ENVIRONMENT
+// 6. CONTAINER APPS ENVIRONMENT
 // ============================================================================
 
 resource containerAppEnv 'Microsoft.App/managedEnvironments@2023-05-01' = {
@@ -233,7 +204,7 @@ resource containerAppEnv 'Microsoft.App/managedEnvironments@2023-05-01' = {
 }
 
 // ============================================================================
-// 8. CONTAINER APP
+// 7. CONTAINER APP
 // ============================================================================
 
 resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
@@ -302,80 +273,33 @@ resource containerAppAcrPull 'Microsoft.Authorization/roleAssignments@2022-04-01
 }
 
 // ============================================================================
-// 9. AZURE FUNCTIONS (Plan + App)
-// ============================================================================
-
-resource hostingPlan 'Microsoft.Web/serverfarms@2023-01-01' = {
-  name: 'plan-${functionAppName}'
-  location: location
-  kind: 'linux'
-  sku: {
-    name: 'Y1'
-    tier: 'Dynamic'
-  }
-  properties: {
-    reserved: true
-  }
-}
-
-resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
-  name: functionAppName
-  location: location
-  kind: 'functionapp,linux'
-  identity: {
-    type: 'SystemAssigned'
-  }
-  properties: {
-    serverFarmId: hostingPlan.id
-    siteConfig: {
-      linuxFxVersion: 'PYTHON|3.11'
-      appSettings: [
-        {
-          name: 'AzureWebJobsStorage'
-          value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
-        }
-        {
-          name: 'FUNCTIONS_EXTENSION_VERSION'
-          value: '~4'
-        }
-        {
-          name: 'FUNCTIONS_WORKER_RUNTIME'
-          value: 'python'
-        }
-        {
-          name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
-          value: appInsights.properties.ConnectionString
-        }
-      ]
-    }
-  }
-}
-
-// ============================================================================
 // OUTPUTS
 // ============================================================================
 
 output containerAppUrl string = 'https://${containerApp.properties.configuration.ingress.fqdn}'
-output functionAppUrl string = 'https://${functionApp.properties.defaultHostName}'
 output acrLoginServer string = acr.properties.loginServer
 output containerAppImage string = buildScript.properties.outputs.containerAppImage
-output functionsImage string = buildScript.properties.outputs.functionsImage
+output resourceGroupName string = resourceGroup().name
 
 output nextSteps string = '''
-✅ Deploy concluído com sucesso!
+✅ Container App deployado com sucesso!
 
-Imagens criadas:
-- Container App: ${buildScript.properties.outputs.containerAppImage}
-- Functions: ${buildScript.properties.outputs.functionsImage}
+Imagem criada:
+- ${buildScript.properties.outputs.containerAppImage}
 
-URLs:
-- Container App: https://${containerApp.properties.configuration.ingress.fqdn}
-- Functions: https://${functionApp.properties.defaultHostName}
+URL do app:
+- https://${containerApp.properties.configuration.ingress.fqdn}
 
 Próximos passos:
 1. Configurar permissões Azure OpenAI (se necessário):
-   az role assignment create --assignee ${containerApp.identity.principalId} --role "Cognitive Services OpenAI User" --scope <OPENAI_RESOURCE_ID>
+   az role assignment create \
+     --assignee ${containerApp.identity.principalId} \
+     --role "Cognitive Services OpenAI User" \
+     --scope /subscriptions/<SUBSCRIPTION_ID>/resourceGroups/<OPENAI_RG>/providers/Microsoft.CognitiveServices/accounts/<OPENAI_NAME>
 
 2. Verificar logs:
    az containerapp logs show --name ${containerAppName} --resource-group ${resourceGroup().name} --follow
+
+3. Testar aplicação:
+   curl https://${containerApp.properties.configuration.ingress.fqdn}
 '''

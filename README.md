@@ -114,28 +114,46 @@ ai-container-demo/
 
 ## 📦 Deployment Options
 
-### 🚀 Opção 1: All-in-One Bicep (MELHOR - Build + Deploy em 1 comando)
+### 🚀 Opção 1: One-Click Deploy (RECOMENDADO)
 
-**Deploy completo via Portal Azure ou CLI - código puxado do GitHub!**
+**Deploy completo via Portal Azure - código puxado do GitHub!**
 
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FmacieljrBiz%2Fai-container-demo%2Frefs%2Fheads%2Fmain%2Finfrastructure%2Fall-in-one-deploy.json)
+#### Container Apps (Build + Deploy)
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FmacieljrBiz%2Fai-container-demo%2Frefs%2Fheads%2Fmain%2Finfrastructure%2Fcontainer-app-complete.json)
+
+- ✅ Faz git clone do repositório
+- ✅ Build da imagem no ACR
+- ✅ Deploy do Container App
+- ✅ Managed Identity configurada
+- ⏱️ ~15-20 minutos
+
+#### Azure Functions (Build + Deploy)
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FmacieljrBiz%2Fai-container-demo%2Frefs%2Fheads%2Fmain%2Finfrastructure%2Ffunctions-complete.json)
+
+- ✅ Faz git clone do repositório
+- ✅ Build da imagem no ACR
+- ✅ Deploy do Azure Functions
+- ✅ Application Insights configurado
+- ⏱️ ~15-20 minutos
 
 **OU via CLI:**
 ```bash
+# Container Apps
 az deployment group create \
-  --resource-group rg-ai-container-demo \
-  --template-file infrastructure/all-in-one-deploy.bicep \
-  --parameters azureOpenAIEndpoint="https://seu-openai.openai.azure.com/"
+  --resource-group rg-ai-demo \
+  --template-file infrastructure/container-app-complete.bicep \
+  --parameters \
+    acrName=seuacr123 \
+    azureOpenAIEndpoint="https://seu-openai.openai.azure.com/"
+
+# Azure Functions
+az deployment group create \
+  --resource-group rg-ai-demo \
+  --template-file infrastructure/functions-complete.bicep \
+  --parameters \
+    acrName=seuacr123 \
+    functionAppName=suafuncao123
 ```
-
-**O que faz:**
-- ✅ Faz git clone do repositório (código sempre atualizado)
-- ✅ Build das imagens no ACR (usando Deployment Scripts)
-- ✅ Deploy completo da infraestrutura (ACR + Container Apps + Functions)
-- ✅ Configuração de Managed Identity e permissões
-- ✅ Tudo em ~15-20 minutos (100% automatizado)
-
-📖 **[Documentação Completa](./infrastructure/ALL-IN-ONE-README.md)**
 
 ---
 
@@ -158,7 +176,7 @@ az deployment group create \
 
 ---
 
-### 3️⃣ Deploy Separado (Infraestrutura sem build)
+### 3️⃣ Deploy Separado (Apenas infraestrutura - sem build)
 
 #### Container Apps (apenas infraestrutura)
 [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FmacieljrBiz%2Fai-container-demo%2Frefs%2Fheads%2Fmain%2Finfrastructure%2Fcontainer-app.json)

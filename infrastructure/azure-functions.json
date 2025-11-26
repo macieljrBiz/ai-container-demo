@@ -5,36 +5,39 @@
     "_generator": {
       "name": "bicep",
       "version": "0.38.33.27573",
-      "templateHash": "3620181365183837835"
+      "templateHash": "14346527447367861750"
     }
   },
   "parameters": {
     "location": {
       "type": "string",
-      "defaultValue": "brazilsouth",
+      "defaultValue": "eastus",
       "metadata": {
         "description": "Azure region"
       }
     },
     "acrName": {
       "type": "string",
-      "defaultValue": "acraifunctions",
+      "minLength": 5,
+      "maxLength": 50,
       "metadata": {
-        "description": "Name of the Azure Container Registry"
+        "description": "Name of the Azure Container Registry (deve ser único globalmente)"
       }
     },
     "functionAppName": {
       "type": "string",
-      "defaultValue": "ai-functions-app",
+      "minLength": 2,
+      "maxLength": 60,
       "metadata": {
-        "description": "Name of the Function App"
+        "description": "Name of the Function App (deve ser único globalmente)"
       }
     },
     "storageAccountName": {
       "type": "string",
-      "defaultValue": "staifunctions",
+      "minLength": 3,
+      "maxLength": 24,
       "metadata": {
-        "description": "Name of the Storage Account"
+        "description": "Name of the Storage Account (deve ser único globalmente, apenas letras minúsculas e números)"
       }
     },
     "azureOpenAIEndpoint": {
