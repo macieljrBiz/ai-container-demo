@@ -114,9 +114,34 @@ ai-container-demo/
 
 ## 📦 Deployment Options
 
-### 🚀 Opção 1: Script PowerShell All-in-One (RECOMENDADO)
+### 🚀 Opção 1: All-in-One Bicep (MELHOR - Build + Deploy em 1 comando)
 
-**Ideal para clientes finais - deploy completo sem GitHub!**
+**Deploy completo via Portal Azure ou CLI - código puxado do GitHub!**
+
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FmacieljrBiz%2Fai-container-demo%2Frefs%2Fheads%2Fmain%2Finfrastructure%2Fall-in-one-deploy.json)
+
+**OU via CLI:**
+```bash
+az deployment group create \
+  --resource-group rg-ai-container-demo \
+  --template-file infrastructure/all-in-one-deploy.bicep \
+  --parameters azureOpenAIEndpoint="https://seu-openai.openai.azure.com/"
+```
+
+**O que faz:**
+- ✅ Faz git clone do repositório (código sempre atualizado)
+- ✅ Build das imagens no ACR (usando Deployment Scripts)
+- ✅ Deploy completo da infraestrutura (ACR + Container Apps + Functions)
+- ✅ Configuração de Managed Identity e permissões
+- ✅ Tudo em ~15-20 minutos (100% automatizado)
+
+📖 **[Documentação Completa](./infrastructure/ALL-IN-ONE-README.md)**
+
+---
+
+### ⚡ Opção 2: Script PowerShell (Deploy rápido com código local)
+
+**Ideal para desenvolvimento - não precisa GitHub!**
 
 ```powershell
 # No Azure Cloud Shell ou PowerShell local
@@ -125,17 +150,17 @@ ai-container-demo/
 
 **O que faz:**
 - ✅ Build das imagens no ACR (na nuvem, sem Docker local)
-- ✅ Deploy completo da infraestrutura (Container Apps + Functions)
+- ✅ Deploy completo da infraestrutura
 - ✅ Configuração de Managed Identity e permissões
-- ✅ Tudo automatizado em ~5-10 minutos
+- ✅ Mais rápido: ~5-10 minutos
 
 📖 **[Guia Completo para Clientes](./scripts/README-CLIENT.md)**
 
 ---
 
-### 1️⃣ Container Apps Deployment
+### 3️⃣ Deploy Separado (Infraestrutura sem build)
 
-#### Using ARM Template (One-Click Deploy)
+#### Container Apps (apenas infraestrutura)
 [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FmacieljrBiz%2Fai-container-demo%2Frefs%2Fheads%2Fmain%2Finfrastructure%2Fcontainer-app.json)
 
 #### Using Terraform

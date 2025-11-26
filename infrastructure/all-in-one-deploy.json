@@ -1,0 +1,361 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.38.33.27573",
+      "templateHash": "14266405734066129559"
+    }
+  },
+  "parameters": {
+    "acrName": {
+      "type": "string",
+      "defaultValue": "acraicondemo",
+      "metadata": {
+        "description": "Nome do Azure Container Registry"
+      }
+    },
+    "containerAppName": {
+      "type": "string",
+      "defaultValue": "ai-container-app",
+      "metadata": {
+        "description": "Nome do Container App"
+      }
+    },
+    "functionAppName": {
+      "type": "string",
+      "defaultValue": "funcappaidessa",
+      "metadata": {
+        "description": "Nome do Azure Functions"
+      }
+    },
+    "azureOpenAIEndpoint": {
+      "type": "string",
+      "metadata": {
+        "description": "Endpoint do Azure OpenAI"
+      }
+    },
+    "azureOpenAIDeployment": {
+      "type": "string",
+      "defaultValue": "gpt-4",
+      "metadata": {
+        "description": "Nome do deployment do Azure OpenAI"
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Location para os recursos"
+      }
+    },
+    "gitRepoUrl": {
+      "type": "string",
+      "defaultValue": "https://github.com/macieljrBiz/ai-container-demo.git",
+      "metadata": {
+        "description": "URL do repositório Git (para fazer git clone e build)"
+      }
+    },
+    "gitBranch": {
+      "type": "string",
+      "defaultValue": "main",
+      "metadata": {
+        "description": "Branch do repositório Git"
+      }
+    }
+  },
+  "variables": {
+    "logAnalyticsName": "[format('log-{0}', parameters('containerAppName'))]",
+    "appInsightsName": "[format('ai-{0}', parameters('functionAppName'))]",
+    "containerAppEnvName": "[format('env-{0}', parameters('containerAppName'))]",
+    "storageName": "[format('st{0}', uniqueString(resourceGroup().id))]",
+    "buildScriptName": "build-container-images"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.ContainerRegistry/registries",
+      "apiVersion": "2023-01-01-preview",
+      "name": "[parameters('acrName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Basic"
+      },
+      "properties": {
+        "adminUserEnabled": true
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2023-01-01",
+      "name": "[variables('storageName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Standard_LRS"
+      },
+      "kind": "StorageV2",
+      "properties": {
+        "minimumTlsVersion": "TLS1_2"
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deploymentScripts",
+      "apiVersion": "2023-08-01",
+      "name": "[variables('buildScriptName')]",
+      "location": "[parameters('location')]",
+      "kind": "AzurePowerShell",
+      "identity": {
+        "type": "UserAssigned",
+        "userAssignedIdentities": {
+          "[format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-build-{0}', parameters('containerAppName'))))]": {}
+        }
+      },
+      "properties": {
+        "azPowerShellVersion": "10.0",
+        "retentionInterval": "P1D",
+        "timeout": "PT30M",
+        "cleanupPreference": "OnSuccess",
+        "storageAccountSettings": {
+          "storageAccountName": "[variables('storageName')]",
+          "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageName')), '2023-01-01').keys[0].value]"
+        },
+        "environmentVariables": [
+          {
+            "name": "ACR_NAME",
+            "value": "[parameters('acrName')]"
+          },
+          {
+            "name": "GIT_REPO_URL",
+            "value": "[parameters('gitRepoUrl')]"
+          },
+          {
+            "name": "GIT_BRANCH",
+            "value": "[parameters('gitBranch')]"
+          }
+        ],
+        "scriptContent": "      Write-Output \"==> Clonando repositório...\"\r\n      git clone -b $env:GIT_BRANCH $env:GIT_REPO_URL repo\r\n      cd repo\r\n      \r\n      Write-Output \"==> Fazendo login no ACR...\"\r\n      az acr login --name $env:ACR_NAME\r\n      \r\n      Write-Output \"==> Build Container App Image...\"\r\n      az acr build `\r\n        --registry $env:ACR_NAME `\r\n        --image \"ai-container-app:latest\" `\r\n        --image \"ai-container-app:$(Get-Date -Format 'yyyyMMdd-HHmmss')\" `\r\n        --file \"./container-app/Dockerfile\" `\r\n        ./container-app\r\n      \r\n      if ($LASTEXITCODE -ne 0) {\r\n        Write-Error \"Falha no build da imagem Container App\"\r\n        exit 1\r\n      }\r\n      \r\n      Write-Output \"==> Build Azure Functions Image...\"\r\n      az acr build `\r\n        --registry $env:ACR_NAME `\r\n        --image \"ai-functions:latest\" `\r\n        --image \"ai-functions:$(Get-Date -Format 'yyyyMMdd-HHmmss')\" `\r\n        --file \"./azure-functions/Dockerfile\" `\r\n        ./azure-functions\r\n      \r\n      if ($LASTEXITCODE -ne 0) {\r\n        Write-Error \"Falha no build da imagem Azure Functions\"\r\n        exit 1\r\n      }\r\n      \r\n      Write-Output \"==> Listando imagens criadas...\"\r\n      az acr repository list --name $env:ACR_NAME --output table\r\n      \r\n      Write-Output \"==> Build concluído com sucesso!\"\r\n      \r\n      # Output para usar em outros recursos\r\n      $DeploymentScriptOutputs = @{}\r\n      $DeploymentScriptOutputs['containerAppImage'] = \"$env:ACR_NAME.azurecr.io/ai-container-app:latest\"\r\n      $DeploymentScriptOutputs['functionsImage'] = \"$env:ACR_NAME.azurecr.io/ai-functions:latest\"\r\n      $DeploymentScriptOutputs['acrLoginServer'] = \"$env:ACR_NAME.azurecr.io\"\r\n    "
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-build-{0}', parameters('containerAppName')))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+      "apiVersion": "2023-01-31",
+      "name": "[format('id-build-{0}', parameters('containerAppName'))]",
+      "location": "[parameters('location')]"
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[format('Microsoft.ContainerRegistry/registries/{0}', parameters('acrName'))]",
+      "name": "[guid(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-build-{0}', parameters('containerAppName'))), 'AcrPush')]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '8311e382-0749-4cb8-b61a-304f252e45ec')]",
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-build-{0}', parameters('containerAppName'))), '2023-01-31').principalId]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-build-{0}', parameters('containerAppName')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces",
+      "apiVersion": "2022-10-01",
+      "name": "[variables('logAnalyticsName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "sku": {
+          "name": "PerGB2018"
+        },
+        "retentionInDays": 30
+      }
+    },
+    {
+      "type": "Microsoft.Insights/components",
+      "apiVersion": "2020-02-02",
+      "name": "[variables('appInsightsName')]",
+      "location": "[parameters('location')]",
+      "kind": "web",
+      "properties": {
+        "Application_Type": "web",
+        "WorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsName'))]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.App/managedEnvironments",
+      "apiVersion": "2023-05-01",
+      "name": "[variables('containerAppEnvName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "appLogsConfiguration": {
+          "destination": "log-analytics",
+          "logAnalyticsConfiguration": {
+            "customerId": "[reference(resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsName')), '2022-10-01').customerId]",
+            "sharedKey": "[listKeys(resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsName')), '2022-10-01').primarySharedKey]"
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.App/containerApps",
+      "apiVersion": "2023-05-01",
+      "name": "[parameters('containerAppName')]",
+      "location": "[parameters('location')]",
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "managedEnvironmentId": "[resourceId('Microsoft.App/managedEnvironments', variables('containerAppEnvName'))]",
+        "configuration": {
+          "ingress": {
+            "external": true,
+            "targetPort": 8000,
+            "transport": "auto",
+            "allowInsecure": false
+          },
+          "registries": [
+            {
+              "server": "[reference(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), '2023-01-01-preview').loginServer]",
+              "identity": "system"
+            }
+          ]
+        },
+        "template": {
+          "containers": [
+            {
+              "name": "ai-container-app",
+              "image": "[reference(resourceId('Microsoft.Resources/deploymentScripts', variables('buildScriptName')), '2023-08-01').outputs.containerAppImage]",
+              "resources": {
+                "cpu": "[json('0.5')]",
+                "memory": "1Gi"
+              },
+              "env": [
+                {
+                  "name": "AZURE_OPENAI_ENDPOINT",
+                  "value": "[parameters('azureOpenAIEndpoint')]"
+                },
+                {
+                  "name": "AZURE_OPENAI_DEPLOYMENT",
+                  "value": "[parameters('azureOpenAIDeployment')]"
+                }
+              ]
+            }
+          ],
+          "scale": {
+            "minReplicas": 1,
+            "maxReplicas": 3
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]",
+        "[resourceId('Microsoft.Resources/deploymentScripts', variables('buildScriptName'))]",
+        "[resourceId('Microsoft.App/managedEnvironments', variables('containerAppEnvName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[format('Microsoft.ContainerRegistry/registries/{0}', parameters('acrName'))]",
+      "name": "[guid(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), resourceId('Microsoft.App/containerApps', parameters('containerAppName')), 'AcrPull')]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')]",
+        "principalId": "[reference(resourceId('Microsoft.App/containerApps', parameters('containerAppName')), '2023-05-01', 'full').identity.principalId]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]",
+        "[resourceId('Microsoft.App/containerApps', parameters('containerAppName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Web/serverfarms",
+      "apiVersion": "2023-01-01",
+      "name": "[format('plan-{0}', parameters('functionAppName'))]",
+      "location": "[parameters('location')]",
+      "kind": "linux",
+      "sku": {
+        "name": "Y1",
+        "tier": "Dynamic"
+      },
+      "properties": {
+        "reserved": true
+      }
+    },
+    {
+      "type": "Microsoft.Web/sites",
+      "apiVersion": "2023-01-01",
+      "name": "[parameters('functionAppName')]",
+      "location": "[parameters('location')]",
+      "kind": "functionapp,linux",
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', format('plan-{0}', parameters('functionAppName')))]",
+        "siteConfig": {
+          "linuxFxVersion": "PYTHON|3.11",
+          "appSettings": [
+            {
+              "name": "AzureWebJobsStorage",
+              "value": "[format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', variables('storageName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageName')), '2023-01-01').keys[0].value)]"
+            },
+            {
+              "name": "FUNCTIONS_EXTENSION_VERSION",
+              "value": "~4"
+            },
+            {
+              "name": "FUNCTIONS_WORKER_RUNTIME",
+              "value": "python"
+            },
+            {
+              "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
+              "value": "[reference(resourceId('Microsoft.Insights/components', variables('appInsightsName')), '2020-02-02').ConnectionString]"
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Insights/components', variables('appInsightsName'))]",
+        "[resourceId('Microsoft.Web/serverfarms', format('plan-{0}', parameters('functionAppName')))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageName'))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "containerAppUrl": {
+      "type": "string",
+      "value": "[format('https://{0}', reference(resourceId('Microsoft.App/containerApps', parameters('containerAppName')), '2023-05-01').configuration.ingress.fqdn)]"
+    },
+    "functionAppUrl": {
+      "type": "string",
+      "value": "[format('https://{0}', reference(resourceId('Microsoft.Web/sites', parameters('functionAppName')), '2023-01-01').defaultHostName)]"
+    },
+    "acrLoginServer": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), '2023-01-01-preview').loginServer]"
+    },
+    "containerAppImage": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deploymentScripts', variables('buildScriptName')), '2023-08-01').outputs.containerAppImage]"
+    },
+    "functionsImage": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deploymentScripts', variables('buildScriptName')), '2023-08-01').outputs.functionsImage]"
+    },
+    "nextSteps": {
+      "type": "string",
+      "value": "✅ Deploy concluído com sucesso!\r\n\r\nImagens criadas:\r\n- Container App: ${buildScript.properties.outputs.containerAppImage}\r\n- Functions: ${buildScript.properties.outputs.functionsImage}\r\n\r\nURLs:\r\n- Container App: https://${containerApp.properties.configuration.ingress.fqdn}\r\n- Functions: https://${functionApp.properties.defaultHostName}\r\n\r\nPróximos passos:\r\n1. Configurar permissões Azure OpenAI (se necessário):\r\n   az role assignment create --assignee ${containerApp.identity.principalId} --role \"Cognitive Services OpenAI User\" --scope <OPENAI_RESOURCE_ID>\r\n\r\n2. Verificar logs:\r\n   az containerapp logs show --name ${containerAppName} --resource-group ${resourceGroup().name} --follow\r\n"
+    }
+  }
+}
