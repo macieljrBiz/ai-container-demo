@@ -67,7 +67,22 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   kind: 'StorageV2'
   properties: {
     minimumTlsVersion: 'TLS1_2'
+    allowSharedKeyAccess: true // Functions precisa de chave
+  }
+}
+
+// Storage Account para Deployment Scripts (SEM autenticação por chave)
+resource storageAccountForScripts 'Microsoft.Storage/storageAccounts@2023-01-01' = {
+  name: 'stscript${uniqueString(resourceGroup().id)}'
+  location: location
+  sku: {
+    name: 'Standard_LRS'
+  }
+  kind: 'StorageV2'
+  properties: {
+    minimumTlsVersion: 'TLS1_2'
     allowSharedKeyAccess: false
+    allowBlobPublicAccess: false
   }
 }
 
@@ -111,6 +126,17 @@ resource acrPushRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   scope: acr
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '8311e382-0749-4cb8-b61a-304f252e45ec') // AcrPush
+    principalId: managedIdentityForBuild.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// Permissão Storage Blob Data Owner para usar autenticação Entra ID
+resource storageBlobOwnerRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storageAccountForScripts.id, managedIdentityForBuild.id, 'StorageBlobDataOwner')
+  scope: storageAccountForScripts
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b') // Storage Blob Data Owner
     principalId: managedIdentityForBuild.properties.principalId
     principalType: 'ServicePrincipal'
   }
@@ -183,6 +209,7 @@ resource buildScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
   }
   dependsOn: [
     acrPushRole
+    storageBlobOwnerRole
   ]
 }
 

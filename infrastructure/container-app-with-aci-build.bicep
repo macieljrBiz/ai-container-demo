@@ -1,7 +1,8 @@
 // ============================================================================
-// CONTAINER APP DEPLOYMENT - Build + Deploy
+// CONTAINER APP DEPLOYMENT - BUILD COM AZURE CONTAINER INSTANCE
 // ============================================================================
-// Deploy APENAS do Container App com build automático da imagem
+// Usa Azure Container Instance ao invés de Deployment Script
+// Evita problemas com Storage Account e Azure Policy
 // ============================================================================
 
 targetScope = 'resourceGroup'
@@ -41,9 +42,8 @@ param gitBranch string = 'main'
 
 var logAnalyticsName = 'log-${containerAppName}'
 var containerAppEnvName = 'env-${containerAppName}'
-var storageName = 'st${uniqueString(resourceGroup().id)}'
-var buildScriptName = 'build-${containerAppName}'
 var managedIdentityName = 'id-build-${containerAppName}'
+var aciName = 'aci-build-${uniqueString(resourceGroup().id)}'
 
 // ============================================================================
 // 1. AZURE CONTAINER REGISTRY
@@ -61,25 +61,7 @@ resource acr 'Microsoft.ContainerRegistry/registries@2023-01-01-preview' = {
 }
 
 // ============================================================================
-// 2. STORAGE ACCOUNT (para Deployment Scripts - SEM autenticação por chave)
-// ============================================================================
-
-resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
-  name: storageName
-  location: location
-  sku: {
-    name: 'Standard_LRS'
-  }
-  kind: 'StorageV2'
-  properties: {
-    minimumTlsVersion: 'TLS1_2'
-    allowSharedKeyAccess: false
-    allowBlobPublicAccess: false
-  }
-}
-
-// ============================================================================
-// 3. MANAGED IDENTITY PARA DEPLOYMENT SCRIPT
+// 2. MANAGED IDENTITY PARA BUILD
 // ============================================================================
 
 resource managedIdentityForBuild 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
@@ -98,25 +80,13 @@ resource acrPushRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   }
 }
 
-// Permissão Storage Blob Data Owner para usar autenticação Entra ID
-resource storageBlobOwnerRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(storageAccount.id, managedIdentityForBuild.id, 'StorageBlobDataOwner')
-  scope: storageAccount
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b') // Storage Blob Data Owner
-    principalId: managedIdentityForBuild.properties.principalId
-    principalType: 'ServicePrincipal'
-  }
-}
-
 // ============================================================================
-// 4. DEPLOYMENT SCRIPT - BUILD DA IMAGEM NO ACR
+// 3. AZURE CONTAINER INSTANCE - EXECUTAR BUILD
 // ============================================================================
 
-resource buildScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
-  name: buildScriptName
+resource buildContainer 'Microsoft.ContainerInstance/containerGroups@2023-05-01' = {
+  name: aciName
   location: location
-  kind: 'AzurePowerShell'
   identity: {
     type: 'UserAssigned'
     userAssignedIdentities: {
@@ -124,64 +94,35 @@ resource buildScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
     }
   }
   properties: {
-    azPowerShellVersion: '11.0'
-    retentionInterval: 'PT1H'
-    timeout: 'PT30M'
-    cleanupPreference: 'OnSuccess'
-    environmentVariables: [
+    containers: [
       {
-        name: 'ACR_NAME'
-        value: acr.name
-      }
-      {
-        name: 'GIT_REPO_URL'
-        value: gitRepoUrl
-      }
-      {
-        name: 'GIT_BRANCH'
-        value: gitBranch
+        name: 'build-container'
+        properties: {
+          image: 'mcr.microsoft.com/azure-cli:latest'
+          command: [
+            '/bin/bash'
+            '-c'
+            'set -e && echo "==> Instalando Git..." && apk add --no-cache git && echo "==> Fazendo login no ACR usando Managed Identity..." && az login --identity --username ${managedIdentityForBuild.properties.clientId} && az acr login --name ${acrName} && echo "==> Clonando repositório..." && git clone -b ${gitBranch} ${gitRepoUrl} /repo && cd /repo && echo "==> Build Container App Image..." && az acr build --registry ${acrName} --image "ai-container-app:latest" --file "./container-app/Dockerfile" ./container-app && echo "==> Build concluído com sucesso!"'
+          ]
+          resources: {
+            requests: {
+              cpu: 1
+              memoryInGB: 2
+            }
+          }
+        }
       }
     ]
-    scriptContent: '''
-      Write-Output "==> Clonando repositório..."
-      git clone -b $env:GIT_BRANCH $env:GIT_REPO_URL repo
-      cd repo
-      
-      Write-Output "==> Fazendo login no ACR..."
-      az acr login --name $env:ACR_NAME
-      
-      Write-Output "==> Build Container App Image..."
-      az acr build `
-        --registry $env:ACR_NAME `
-        --image "ai-container-app:latest" `
-        --image "ai-container-app:$(Get-Date -Format 'yyyyMMdd-HHmmss')" `
-        --file "./container-app/Dockerfile" `
-        ./container-app
-      
-      if ($LASTEXITCODE -ne 0) {
-        Write-Error "Falha no build da imagem Container App"
-        exit 1
-      }
-      
-      Write-Output "==> Listando imagens criadas..."
-      az acr repository list --name $env:ACR_NAME --output table
-      
-      Write-Output "==> Build concluído com sucesso!"
-      
-      # Output para usar em outros recursos
-      $DeploymentScriptOutputs = @{}
-      $DeploymentScriptOutputs['containerAppImage'] = "$env:ACR_NAME.azurecr.io/ai-container-app:latest"
-      $DeploymentScriptOutputs['acrLoginServer'] = "$env:ACR_NAME.azurecr.io"
-    '''
+    osType: 'Linux'
+    restartPolicy: 'Never'
   }
   dependsOn: [
     acrPushRole
-    storageBlobOwnerRole
   ]
 }
 
 // ============================================================================
-// 5. LOG ANALYTICS
+// 4. LOG ANALYTICS
 // ============================================================================
 
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
@@ -196,7 +137,7 @@ resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
 }
 
 // ============================================================================
-// 6. CONTAINER APPS ENVIRONMENT
+// 5. CONTAINER APPS ENVIRONMENT
 // ============================================================================
 
 resource containerAppEnv 'Microsoft.App/managedEnvironments@2023-05-01' = {
@@ -214,6 +155,26 @@ resource containerAppEnv 'Microsoft.App/managedEnvironments@2023-05-01' = {
 }
 
 // ============================================================================
+// 6. MANAGED IDENTITY PARA CONTAINER APP
+// ============================================================================
+
+resource managedIdentityForApp 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: 'id-${containerAppName}'
+  location: location
+}
+
+// Permissão para pull de imagens do ACR
+resource acrPullRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(acr.id, managedIdentityForApp.id, 'AcrPull')
+  scope: acr
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d') // AcrPull
+    principalId: managedIdentityForApp.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// ============================================================================
 // 7. CONTAINER APP
 // ============================================================================
 
@@ -221,7 +182,10 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
   name: containerAppName
   location: location
   identity: {
-    type: 'SystemAssigned'
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${managedIdentityForApp.id}': {}
+    }
   }
   properties: {
     managedEnvironmentId: containerAppEnv.id
@@ -235,7 +199,7 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
       registries: [
         {
           server: acr.properties.loginServer
-          identity: 'system'
+          identity: managedIdentityForApp.id
         }
       ]
     }
@@ -243,7 +207,7 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
       containers: [
         {
           name: 'ai-container-app'
-          image: buildScript.properties.outputs.containerAppImage
+          image: '${acr.properties.loginServer}/ai-container-app:latest'
           resources: {
             cpu: json('0.5')
             memory: '1Gi'
@@ -262,24 +226,24 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
       ]
       scale: {
         minReplicas: 1
-        maxReplicas: 3
+        maxReplicas: 10
+        rules: [
+          {
+            name: 'http-rule'
+            http: {
+              metadata: {
+                concurrentRequests: '10'
+              }
+            }
+          }
+        ]
       }
     }
   }
   dependsOn: [
-    buildScript
+    buildContainer
+    acrPullRole
   ]
-}
-
-// Permissão ACR Pull para Container App
-resource containerAppAcrPull 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(acr.id, containerApp.id, 'AcrPull')
-  scope: acr
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d') // AcrPull
-    principalId: containerApp.identity.principalId
-    principalType: 'ServicePrincipal'
-  }
 }
 
 // ============================================================================
@@ -288,28 +252,20 @@ resource containerAppAcrPull 'Microsoft.Authorization/roleAssignments@2022-04-01
 
 output containerAppUrl string = 'https://${containerApp.properties.configuration.ingress.fqdn}'
 output acrLoginServer string = acr.properties.loginServer
-output containerAppImage string = buildScript.properties.outputs.containerAppImage
+output containerAppImage string = '${acr.properties.loginServer}/ai-container-app:latest'
 output resourceGroupName string = resourceGroup().name
+output containerAppName string = containerApp.name
+output buildContainerState string = buildContainer.properties.instanceView.state
 
 output nextSteps string = '''
-✅ Container App deployado com sucesso!
+DEPLOY COMPLETO!
 
-Imagem criada:
-- ${buildScript.properties.outputs.containerAppImage}
+✅ ACR criado e imagem foi feita build
+✅ Container App deployado
 
-URL do app:
-- https://${containerApp.properties.configuration.ingress.fqdn}
+URL da aplicação:
+https://${containerApp.properties.configuration.ingress.fqdn}
 
-Próximos passos:
-1. Configurar permissões Azure OpenAI (se necessário):
-   az role assignment create \
-     --assignee ${containerApp.identity.principalId} \
-     --role "Cognitive Services OpenAI User" \
-     --scope /subscriptions/<SUBSCRIPTION_ID>/resourceGroups/<OPENAI_RG>/providers/Microsoft.CognitiveServices/accounts/<OPENAI_NAME>
-
-2. Verificar logs:
-   az containerapp logs show --name ${containerAppName} --resource-group ${resourceGroup().name} --follow
-
-3. Testar aplicação:
-   curl https://${containerApp.properties.configuration.ingress.fqdn}
+Para verificar logs do build:
+az container logs --name ${aciName} --resource-group ${resourceGroup().name}
 '''
