@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.38.33.27573",
-      "templateHash": "404407802440362843"
+      "templateHash": "17696517808869991418"
     }
   },
   "parameters": {
@@ -28,6 +28,13 @@
       "defaultValue": "ai-container-app",
       "metadata": {
         "description": "Name of the Container App"
+      }
+    },
+    "containerImage": {
+      "type": "string",
+      "defaultValue": "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest",
+      "metadata": {
+        "description": "Container image (format: registry/image:tag)"
       }
     },
     "azureOpenAIEndpoint": {
@@ -126,7 +133,7 @@
           "containers": [
             {
               "name": "ai-container-app",
-              "image": "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest",
+              "image": "[parameters('containerImage')]",
               "resources": {
                 "cpu": "[json('0.25')]",
                 "memory": "0.5Gi"

@@ -8,6 +8,9 @@ param acrName string = 'acraicondemo'
 @description('Name of the Container App')
 param containerAppName string = 'ai-container-app'
 
+@description('Container image (format: registry/image:tag)')
+param containerImage string = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
+
 @description('Azure OpenAI endpoint URL')
 param azureOpenAIEndpoint string
 
@@ -91,7 +94,7 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
       containers: [
         {
           name: 'ai-container-app'
-          image: 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
+          image: containerImage
           resources: {
             cpu: json('0.25')
             memory: '0.5Gi'
