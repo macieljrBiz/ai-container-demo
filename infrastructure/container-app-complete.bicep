@@ -73,6 +73,7 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   kind: 'StorageV2'
   properties: {
     minimumTlsVersion: 'TLS1_2'
+    allowSharedKeyAccess: true
   }
 }
 
@@ -96,6 +97,17 @@ resource acrPushRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   }
 }
 
+// Permissão para acessar Storage Account
+resource storageBlobRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storageAccount.id, managedIdentityForBuild.id, 'StorageBlobDataContributor')
+  scope: storageAccount
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe') // Storage Blob Data Contributor
+    principalId: managedIdentityForBuild.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
 // ============================================================================
 // 4. DEPLOYMENT SCRIPT - BUILD DA IMAGEM NO ACR
 // ============================================================================
@@ -107,12 +119,12 @@ resource buildScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
   identity: {
     type: 'UserAssigned'
     userAssignedIdentities: {
-      '${managedIdentityForBuild.id}': {}
+      '\${managedIdentityForBuild.id}': {}
     }
   }
   properties: {
     azPowerShellVersion: '11.0'
-    retentionInterval: 'P1D'
+    retentionInterval: 'PT1H'
     timeout: 'PT30M'
     cleanupPreference: 'OnSuccess'
     storageAccountSettings: {
@@ -167,6 +179,7 @@ resource buildScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
   }
   dependsOn: [
     acrPushRole
+    storageBlobRole
   ]
 }
 
