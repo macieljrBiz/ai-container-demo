@@ -154,7 +154,7 @@ ai-container-demo/
 
 ## 🚀 Deploy via GitHub Actions
 
-**📚 Guia completo:** [.github/README.md](.github/README.md)
+**📚 Guia completo:** [.github/GITHUB-REQUISITOS.md](.github/GITHUB-REQUISITOS.md)
 
 ### Resumo Rápido:
 
