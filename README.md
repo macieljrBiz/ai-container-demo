@@ -59,34 +59,22 @@ ai-container-demo/
 | **Cold Start** | Minimal (when scaled to 0) | Yes (Consumption plan) |
 | **Framework** | Any (FastAPI, Django, Flask, etc.) | Azure Functions runtime |
 | **Ingress** | HTTP/HTTPS on port 8000 | HTTP triggers on `/api/*` routes |
-| **Cost (Scale-to-Zero)** | $0 when idle<br>~$0.048/hour when active (0.25 vCPU, 0.5 GiB) | $0 when idle<br>~$0.0001/request |
-| **Use Case** | **This demo: Web UI + API** | **This demo: Serverless API** |
-
-### 💡 When to Use Each
-
-**Choose Container Apps when:**
-- You have existing containerized applications
-- You need full control over the runtime environment
-- You want predictable costs with scale-to-zero
-- You're building microservices or web applications
-
-**Choose Azure Functions when:**
-- You have event-driven workloads (timers, queues, etc.)
-- You want serverless architecture with minimal management
-- You need fine-grained per-execution billing
-- You're building APIs or background processing
 
 ---
 
 ## 🚀 Quick Start
 
-### Prerequisites
+### Pré-requisitos
 
-- Python 3.11 or higher
-- Azure OpenAI resource with managed identity access configured
-- Azure CLI installed and authenticated
-- Docker (optional - can use `az acr build` for remote builds)
-- Terraform or Bicep (for IaC deployment)
+**Para desenvolvimento local:**
+- Python 3.11 ou superior
+- Docker (opcional)
+
+**Para deploy no Azure:**
+- Azure CLI instalado e autenticado (`az login`)
+- **Azure AI Foundry** com modelo deployado (exemplo: gpt-4o)
+  - Você precisará do **endpoint** do modelo (ex: `https://seu-modelo.openai.azure.com/`)
+  - Configure **Managed Identity** com permissões no modelo
 
 ### Local Development
 
@@ -96,29 +84,68 @@ ai-container-demo/
    cd ai-container-demo
    ```
 
-2. **Choose your deployment option:**
+2. **Configure o endpoint do Azure AI Foundry**
+   
+   No arquivo `container-app/main.py`, edite a linha 10:
+   ```python
+   endpoint = os.getenv("AZURE_OPENAI_ENDPOINT", "https://SEU-MODELO.openai.azure.com/")
+   ```
+   
+   Substitua `https://SEU-MODELO.openai.azure.com/` pelo endpoint do seu modelo no AI Foundry.
+   
+   **Como obter o endpoint:**
+   - Acesse [Azure AI Foundry](https://ai.azure.com)
+   - Navegue até seu projeto
+   - Vá em **Deployments** > Selecione seu modelo
+   - Copie o **Target URI** (endpoint)
 
-   **Option A: Container Apps** (recommended for web apps)
+3. **Teste localmente**
+
+   **Opção A: Usando Docker**
    ```bash
    cd container-app
-   # Follow container-app/README.md
+   
+   # Build da imagem
+   docker build -t ai-container-app .
+   
+   # Execute o container (substitua pelo seu endpoint)
+   docker run -p 8000:8000 \
+     -e AZURE_OPENAI_ENDPOINT="https://SEU-MODELO.openai.azure.com/" \
+     ai-container-app
    ```
 
-   **Option B: Azure Functions** (recommended for APIs)
+   **Opção B: Usando pip (desenvolvimento)**
    ```bash
-   cd azure-functions
-   # Follow azure-functions/README.md
+   cd container-app
+   
+   # Instale dependências
+   pip install -r requirements.txt
+   
+   # Configure variáveis de ambiente
+   export AZURE_OPENAI_ENDPOINT="https://SEU-MODELO.openai.azure.com/"
+   
+   # Execute localmente
+   uvicorn main:app --reload --port 8000
    ```
+
+   Acesse: http://localhost:8000
 
 ---
 
-## 📦 Deployment Options
+## 📦 Deployment Options on Azure
 
 ### 🚀 Opção 1: Deploy Simplificado (RECOMENDADO)
 
-**Deploy em 2 passos - sem Deployment Scripts, sem Storage Account!**
+**Deploy em 2 passos**
 
 #### Container Apps
+
+**Pré-requisito: Configure o endpoint no código**
+
+Antes de fazer o build, edite `container-app/main.py` linha 10 com o endpoint do seu modelo:
+```python
+endpoint = os.getenv("AZURE_OPENAI_ENDPOINT", "https://SEU-MODELO.openai.azure.com/")
+```
 
 **Passo 1: Build da imagem**
 ```bash
@@ -140,192 +167,37 @@ az acr build \
 
 **Passo 2: Deploy da infraestrutura**
 
+Clique no botão abaixo e preencha:
+- **Container App Name**: Nome desejado do seu container 
+- **ACR Name**: Nome do ACR que você criou no Passo 1
+- **Container Image Name**: `ai-container-app:latest` (ou o nome da imagem que você usou)
+
 [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FmacieljrBiz%2Fai-container-demo%2Frefs%2Fheads%2Fmain%2Finfrastructure%2Fcontainer-app-complete.json)
 
-**OU via CLI:**
+**Passo 3: Configure Managed Identity (IMPORTANTE)**
+
+Após o deploy, configure o acesso do Container App ao AI Foundry:
+
 ```bash
-az deployment group create \
-  --resource-group rg-ai-demo \
-  --template-file infrastructure/container-app-complete.bicep \
-  --parameters \
-    containerAppName=ai-app \
-    acrName=myacr123 \
-    azureOpenAIEndpoint=https://YOUR_ENDPOINT.openai.azure.com/ \
-    azureOpenAIDeployment=gpt-4o
-```
-
-**OU via Script Automatizado:**
-```bash
-# Linux/Mac
-cd infrastructure
-./deploy.sh
-
-# Windows
-cd infrastructure
-.\deploy.ps1
-```
-
-- ✅ Sem Deployment Scripts
-- ✅ Sem Storage Account
-- ✅ Sem Azure Policy conflicts
-- ✅ Managed Identity configurada
-- ⏱️ ~5-10 minutos
-
----
-
-#### Azure Functions (Build + Deploy)
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FmacieljrBiz%2Fai-container-demo%2Frefs%2Fheads%2Fmain%2Finfrastructure%2Ffunctions-complete.json)
-
-**OU via CLI:**
-```bash
-az deployment group create \
-  --resource-group rg-ai-demo \
-  --template-file infrastructure/functions-complete.bicep \
-  --parameters \
-    acrName=seuacr123 \
-    azureOpenAIEndpoint="https://seu-openai.openai.azure.com/"
-
-# Azure Functions
-az deployment group create \
-  --resource-group rg-ai-demo \
-  --template-file infrastructure/functions-complete.bicep \
-  --parameters \
-    acrName=seuacr123 \
-    functionAppName=suafuncao123
-```
-
----
-
-### ⚡ Opção 2: Script PowerShell (Deploy rápido com código local)
-
-**Ideal para desenvolvimento - não precisa GitHub!**
-
-```powershell
-# No Azure Cloud Shell ou PowerShell local
-./scripts/build-and-deploy.ps1
-```
-
-**O que faz:**
-- ✅ Build das imagens no ACR (na nuvem, sem Docker local)
-- ✅ Deploy completo da infraestrutura
-- ✅ Configuração de Managed Identity e permissões
-- ✅ Mais rápido: ~5-10 minutos
-
-📖 **[Guia Completo para Clientes](./scripts/README-CLIENT.md)**
-
----
-
-### 3️⃣ Deploy Separado (Apenas infraestrutura - sem build)
-
-#### Container Apps (apenas infraestrutura)
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FmacieljrBiz%2Fai-container-demo%2Frefs%2Fheads%2Fmain%2Finfrastructure%2Fcontainer-app.json)
-
-#### Using Terraform
-```bash
-cd infrastructure
-terraform init
-terraform plan -var-file="container-app.tfvars"
-terraform apply -var-file="container-app.tfvars"
-```
-
-#### Using Bicep
-```bash
-cd infrastructure
-az deployment group create \
-  --resource-group rg-ai-container-demo \
-  --template-file container-app.bicep \
-  --parameters azureOpenAIEndpoint="https://your-resource.cognitiveservices.azure.com/openai/v1/" \
-               azureOpenAIResourceGroup="rg-openai"
-```
-
-#### Using Azure CLI (Manual)
-```bash
-cd container-app
-
-# Build and push image
-az acr build --registry <your-acr> --image ai-container-app:latest .
-
-# Create Container App
-az containerapp create \
+# Obtenha o Principal ID do Container App
+PRINCIPAL_ID=$(az containerapp show \
   --name ai-container-app \
-  --resource-group rg-ai-container-demo \
-  --environment <your-environment> \
-  --image <your-acr>.azurecr.io/ai-container-app:latest \
-  --target-port 8000 \
-  --ingress external \
-  --cpu 0.25 --memory 0.5Gi \
-  --min-replicas 0 --max-replicas 10 \
-  --env-vars AZURE_OPENAI_ENDPOINT=<endpoint> AZURE_OPENAI_DEPLOYMENT=gpt-4 \
-  --registry-server <your-acr>.azurecr.io \
-  --system-assigned
-```
+  --resource-group rg-ai-demo \
+  --query identity.principalId -o tsv)
 
-### 2️⃣ Azure Functions Deployment
-
-#### Using ARM Template (One-Click Deploy)
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FmacieljrBiz%2Fai-container-demo%2Frefs%2Fheads%2Fmain%2Finfrastructure%2Fazure-functions.json)
-
-#### Using Terraform
-```bash
-cd infrastructure
-terraform init
-terraform plan -var-file="azure-functions.tfvars"
-terraform apply -var-file="azure-functions.tfvars"
-```
-#### Using Bicep (One-Click Deploy)
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FmacieljrBiz%2Fai-container-demo%2Fmain%2Finfrastructure%2Fcontainer-app.bicep)
-
-#### Using Bicep
-```bash
-cd infrastructure
-az deployment group create \
-  --resource-group rg-ai-functions-demo \
-  --template-file azure-functions.bicep \
-  --parameters azureOpenAIEndpoint="https://your-resource.cognitiveservices.azure.com/openai/v1/" \
-               azureOpenAIResourceGroup="rg-openai"
-```
-
-#### Using Azure CLI (Manual)
-```bash
-cd azure-functions
-
-# Build and push image
-az acr build --registry <your-acr> --image ai-functions-app:latest .
-
-# Create Function App
-az functionapp create \
-  --name ai-functions-app \
-  --resource-group rg-ai-functions-demo \
-  --plan <your-plan> \
-  --deployment-container-image-name <your-acr>.azurecr.io/ai-functions-app:latest \
-  --docker-registry-server-url https://<your-acr>.azurecr.io \
-  --storage-account <your-storage> \
-  --system-assigned-identity
-```
-
----
-
-## 🔐 Managed Identity Configuration
-
-Both applications use **System-Assigned Managed Identity** to authenticate with Azure OpenAI.
-
-### Assign Role (Automatic with IaC)
-Terraform/Bicep automatically assigns the **"Cognitive Services OpenAI User"** role.
-
-### Manual Role Assignment
-```bash
-# Get the principal ID
-PRINCIPAL_ID=$(az containerapp show --name ai-container-app --resource-group rg-ai-container-demo --query identity.principalId -o tsv)
-
-# Or for Functions
-PRINCIPAL_ID=$(az functionapp show --name ai-functions-app --resource-group rg-ai-functions-demo --query identity.principalId -o tsv)
-
-# Assign role
+# Atribua role "Cognitive Services OpenAI User" ao modelo
 az role assignment create \
   --role "Cognitive Services OpenAI User" \
   --assignee $PRINCIPAL_ID \
-  --scope /subscriptions/<subscription-id>/resourceGroups/<openai-rg>/providers/Microsoft.CognitiveServices/accounts/<openai-name>
+  --scope /subscriptions/<SUB_ID>/resourceGroups/<RG>/providers/Microsoft.CognitiveServices/accounts/<OPENAI_NAME>
 ```
+
+Ou configure via portal:
+1. Acesse seu recurso **Azure AI Foundry**
+2. Vá em **Access Control (IAM)** > **Add role assignment**
+3. Role: **Cognitive Services OpenAI User**
+4. Assign access to: **Managed Identity**
+5. Selecione o Container App criado
 
 ---
 
