@@ -69,7 +69,7 @@ resource containerAppEnv 'Microsoft.App/managedEnvironments@2023-05-01' = {
 }
 
 // ============================================================================
-// 3. CONTAINER APP – Assume que imagem já existe no ACR
+// 4. CONTAINER APP – Assume que imagem já existe no ACR
 // ============================================================================
 resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
   name: containerAppName
@@ -121,10 +121,10 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
 }
 
 // ============================================================================
-// 4. ROLE ASSIGNMENTS
+// 5. ROLE ASSIGNMENTS
 // ============================================================================
 
-// 4.1. AcrPull - Permitir Container App puxar imagens do ACR
+// 5.1. AcrPull - Permitir Container App puxar imagens do ACR
 resource acrPullRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(acr.id, containerApp.id, 'AcrPull')
   scope: acr
@@ -135,7 +135,7 @@ resource acrPullRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   }
 }
 
-// 4.2. Cognitive Services OpenAI User - Configura acesso ao Azure OpenAI
+// 5.2. Cognitive Services OpenAI User - Configura acesso ao Azure OpenAI
 module openAiRoleAssignment './openai-role.bicep' = {
   name: '${containerAppName}-openai-role'
   scope: resourceGroup(split(openAiResourceId, '/')[2], split(openAiResourceId, '/')[4])
