@@ -22,7 +22,9 @@ $LOCATION = "eastus"
 $CONTAINER_APP_NAME = "ai-container-app"
 $ACR_NAME = "SEU_ACR_EXISTENTE"  # ⚠️ EDITE: nome do ACR já existente
 $CONTAINER_IMAGE_NAME = "ai-container-app:latest"
-$OPENAI_RESOURCE_ID = ""  # OPCIONAL: /subscriptions/.../resourceGroups/.../providers/Microsoft.CognitiveServices/accounts/...
+$AZURE_OPENAI_ENDPOINT = "https://SEU-MODELO.openai.azure.com/"  # ⚠️ EDITE: endpoint do seu modelo
+$AZURE_OPENAI_DEPLOYMENT = "gpt-4o"
+$OPENAI_RESOURCE_ID = "/subscriptions/SUB_ID/resourceGroups/RG_NAME/providers/Microsoft.CognitiveServices/accounts/OPENAI_NAME"  # ⚠️ EDITE
 
 # ============================================================================
 # VALIDAÇÃO DE PRÉ-REQUISITOS
@@ -90,6 +92,8 @@ az deployment group create `
     containerAppName=$CONTAINER_APP_NAME `
     acrName=$ACR_NAME `
     containerImageName=$CONTAINER_IMAGE_NAME `
+    azureOpenAIEndpoint="$AZURE_OPENAI_ENDPOINT" `
+    azureOpenAIDeployment="$AZURE_OPENAI_DEPLOYMENT" `
     openAiResourceId="$OPENAI_RESOURCE_ID"
 
 # ============================================================================

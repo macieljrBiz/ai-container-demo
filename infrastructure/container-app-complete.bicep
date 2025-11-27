@@ -23,8 +23,14 @@ param acrName string
 @description('Nome completo da imagem (ex: ai-container-app:latest)')
 param containerImageName string = 'ai-container-app:latest'
 
-@description('Resource ID completo do Azure OpenAI (opcional - se fornecido, configura acesso automático)')
-param openAiResourceId string = ''
+@description('Endpoint do Azure OpenAI (ex: https://seu-modelo.openai.azure.com/)')
+param azureOpenAIEndpoint string
+
+@description('Nome do deployment do Azure OpenAI (ex: gpt-4o)')
+param azureOpenAIDeployment string = 'gpt-4o'
+
+@description('Resource ID completo do Azure OpenAI para configuração de permissões')
+param openAiResourceId string
 
 // ============================================================================
 // 1. REFERÊNCIA AO ACR EXISTENTE
@@ -94,6 +100,16 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
             cpu: json('0.5')
             memory: '1Gi'
           }
+          env: [
+            {
+              name: 'AZURE_OPENAI_ENDPOINT'
+              value: azureOpenAIEndpoint
+            }
+            {
+              name: 'AZURE_OPENAI_DEPLOYMENT'
+              value: azureOpenAIDeployment
+            }
+          ]
         }
       ]
       scale: {
@@ -119,8 +135,8 @@ resource acrPullRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   }
 }
 
-// 4.2. Cognitive Services OpenAI User - Apenas se openAiResourceId foi fornecido
-module openAiRoleAssignment './openai-role.bicep' = if (!empty(openAiResourceId)) {
+// 4.2. Cognitive Services OpenAI User - Configura acesso ao Azure OpenAI
+module openAiRoleAssignment './openai-role.bicep' = {
   name: '${containerAppName}-openai-role'
   scope: resourceGroup(split(openAiResourceId, '/')[2], split(openAiResourceId, '/')[4])
   params: {

@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.38.33.27573",
-      "templateHash": "3285223756610785468"
+      "templateHash": "5573910500308891878"
     }
   },
   "parameters": {
@@ -28,11 +28,23 @@
         "description": "Nome completo da imagem (ex: ai-container-app:latest)"
       }
     },
+    "azureOpenAIEndpoint": {
+      "type": "string",
+      "metadata": {
+        "description": "Endpoint do Azure OpenAI (ex: https://seu-modelo.openai.azure.com/)"
+      }
+    },
+    "azureOpenAIDeployment": {
+      "type": "string",
+      "defaultValue": "gpt-4o",
+      "metadata": {
+        "description": "Nome do deployment do Azure OpenAI (ex: gpt-4o)"
+      }
+    },
     "openAiResourceId": {
       "type": "string",
-      "defaultValue": "",
       "metadata": {
-        "description": "Resource ID completo do Azure OpenAI (opcional - se fornecido, configura acesso automático)"
+        "description": "Resource ID completo do Azure OpenAI para configuração de permissões"
       }
     }
   },
@@ -103,7 +115,17 @@
               "resources": {
                 "cpu": "[json('0.5')]",
                 "memory": "1Gi"
-              }
+              },
+              "env": [
+                {
+                  "name": "AZURE_OPENAI_ENDPOINT",
+                  "value": "[parameters('azureOpenAIEndpoint')]"
+                },
+                {
+                  "name": "AZURE_OPENAI_DEPLOYMENT",
+                  "value": "[parameters('azureOpenAIDeployment')]"
+                }
+              ]
             }
           ],
           "scale": {
@@ -131,7 +153,6 @@
       ]
     },
     {
-      "condition": "[not(empty(parameters('openAiResourceId')))]",
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2025-04-01",
       "name": "[format('{0}-openai-role', parameters('containerAppName'))]",
