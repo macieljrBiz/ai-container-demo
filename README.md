@@ -4,9 +4,15 @@
 Andressa Siqueira - [ansiqueira@microsoft.com](mailto:ansiqueira@microsoft.com)  
 Vicente Maciel Jr - [vicentem@microsoft.com](mailto:vicentem@microsoft.com)
 
-A demonstration of Azure OpenAI integration using **managed identity authentication** in two deployment options:
+A demonstration of Azure OpenAI integration using **managed identity authentication** with **professional CI/CD deployment** following Microsoft Well-Architected Framework best practices.
+
+**Deployment Options:**
 - **Azure Container Apps** - Serverless container platform with scale-to-zero
 - **Azure Functions** - Event-driven serverless compute with containerized Python runtime
+
+**CI/CD:**
+- **GitHub Actions** - Automated deployment with OIDC authentication (recommended)
+- **Deploy Buttons** - One-click Azure Portal deployment (alternative)
 
 ---
 
@@ -14,26 +20,32 @@ A demonstration of Azure OpenAI integration using **managed identity authenticat
 
 ```
 ai-container-demo/
+├── .github/
+│   ├── workflows/
+│   │   ├── deploy-infrastructure.yml    # 1️⃣ Deploy Bicep template
+│   │   ├── activate-container-app.yml   # 2️⃣ Activate after role propagation
+│   │   └── build-images.yml             # Build Docker images to ACR
+│   └── GITHUB_ACTIONS_SETUP.md          # Complete setup guide for CI/CD
+│
 ├── container-app/           # FastAPI application for Azure Container Apps
 │   ├── main.py             # FastAPI application code
 │   ├── Dockerfile          # Container image definition
 │   ├── requirements.txt    # Python dependencies
-│   ├── static/             # Web UI files
-│   └── README.md           # Container Apps specific guide
+│   └── static/             # Web UI files
 │
 ├── azure-functions/        # Azure Functions application
 │   ├── function_app.py     # Functions v4 Python code
 │   ├── host.json           # Functions runtime configuration
 │   ├── Dockerfile          # Container image definition
 │   ├── requirements.txt    # Python dependencies
-│   ├── static/             # Web UI files
-│   └── README.md           # Azure Functions specific guide
+│   └── static/             # Web UI files
 │
-└── infrastructure/         # Infrastructure as Code (IaC)
-    ├── container-app.tf    # Terraform for Container Apps
-    ├── container-app.bicep # Bicep for Container Apps
-    ├── azure-functions.tf  # Terraform for Azure Functions
-    └── azure-functions.bicep # Bicep for Azure Functions
+└── infrastructure/         # Infrastructure as Code (Bicep)
+    ├── container-app-complete.bicep  # Container App with roles
+    ├── functions-complete.bicep      # Azure Functions with roles
+    ├── openai-role.bicep            # Cross-RG role assignment module
+    ├── deploy.sh / deploy.ps1       # CLI deployment scripts (alternative)
+    └── *.json                       # Compiled ARM templates for Deploy Buttons
 ```
 
 ---
@@ -132,25 +144,53 @@ ai-container-demo/
 
 ---
 
-## 📦 Deployment Options on Azure
+## 🚀 Deployment Options
 
-### 🚀 Opção 1: Deploy Simplificado (RECOMENDADO)
+### ✅ **Opção 1: GitHub Actions (RECOMENDADO)** 
 
-**Deploy em 2 passos**
+**Deployment profissional seguindo melhores práticas da Microsoft:**
+- ✅ **OIDC Authentication** (sem secrets de senha)
+- ✅ **Separação de responsabilidades** (infraestrutura ≠ aplicação)
+- ✅ **Rastreabilidade completa** de deployments
+- ✅ **Alinhado com Well-Architected Framework**
+
+**📚 Documentação completa:** [.github/GITHUB_ACTIONS_SETUP.md](.github/GITHUB_ACTIONS_SETUP.md)
+
+**Resumo do processo:**
+
+1. **Configure OIDC no Azure** (5 minutos)
+   ```bash
+   # Criar Managed Identity
+   # Atribuir roles (Contributor + User Access Administrator)
+   # Configurar Federated Credential
+   ```
+
+2. **Configure Secrets no GitHub** (2 minutos)
+   - `AZURE_CLIENT_ID`
+   - `AZURE_TENANT_ID`
+   - `AZURE_SUBSCRIPTION_ID`
+
+3. **Execute os Workflows**
+   - **Actions** → **1️⃣ Deploy Infrastructure** → Run workflow
+   - **Aguarde 2-3 minutos** ⏰ (role propagation)
+   - **Actions** → **2️⃣ Activate Container App** → Run workflow
+
+**Resultado:** Container App deployado, configurado e ativo automaticamente! 🎉
+
+---
+
+### 🔘 **Opção 2: Deploy Button (Portal Azure)**
+
+**Deploy rápido com um clique** (ideal para testes):
 
 #### Container Apps
 
-**Pré-requisito: Configure o endpoint no código**
-
-Antes de fazer o build, edite `container-app/main.py` linha 10 com o endpoint do seu modelo:
-```python
-endpoint = os.getenv("AZURE_OPENAI_ENDPOINT", "https://SEU-MODELO.openai.azure.com/")
-```
+**Pré-requisitos:**
+1. Azure Container Registry (ACR) criado
+2. Imagem Docker já construída no ACR
 
 **Passo 1: Build da imagem**
 ```bash
-cd infrastructure
-
 # Criar ACR (apenas uma vez)
 az acr create \
   --resource-group rg-ai-demo \
@@ -161,91 +201,127 @@ az acr create \
 az acr build \
   --registry myacr123 \
   --image ai-container-app:latest \
-  --file ../container-app/Dockerfile \
-  ../container-app
+  --file container-app/Dockerfile \
+  container-app
 ```
 
-**Passo 2: Deploy da infraestrutura**
-
-Clique no botão abaixo e preencha:
-- **Container App Name**: Nome desejado do seu container 
-- **ACR Name**: Nome do ACR que você criou no Passo 1
-- **Container Image Name**: `ai-container-app:latest` (ou o nome da imagem que você usou)
+**Passo 2: Deploy via Portal**
 
 [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FmacieljrBiz%2Fai-container-demo%2Frefs%2Fheads%2Fmain%2Finfrastructure%2Fcontainer-app-complete.json)
 
-> **⚠️ NOTA**: O Container App inicia com `minReplicas: 0` para evitar falhas enquanto as permissões propagam. Após o deploy, siga o Passo 3 para ativá-lo.
+Preencha os parâmetros:
+- **Container App Name**: Nome do seu container
+- **ACR Name**: Nome do ACR criado no Passo 1
+- **Azure OpenAI Endpoint**: `https://seu-modelo.openai.azure.com/`
+- **Azure OpenAI Deployment**: Nome do deployment (ex: `gpt-4o`)
+- **OpenAI Resource ID**: Resource ID completo do Azure OpenAI
 
-**Passo 3: Ative o Container App (IMPORTANTE)**
+> **⚠️ IMPORTANTE**: O Container App inicia com `minReplicas: 0` para evitar falhas durante propagação de permissões.
 
-Após o deploy concluir, aguarde 1-2 minutos e execute:
+**Passo 3: Ativar o Container App (OBRIGATÓRIO)**
+
+Aguarde **2-3 minutos** após o deploy e execute:
 
 ```bash
-# Ative o Container App (escala de 0 para 1)
 az containerapp update \
   --name <CONTAINER_APP_NAME> \
   --resource-group <RESOURCE_GROUP> \
   --min-replicas 1
 ```
 
-Isso garante que as permissões de ACR estejam propagadas antes de fazer pull da imagem.
-
-**Passo 4: Configure acesso ao AI Foundry**
-
-Configure o acesso do Container App ao AI Foundry:
-
-```bash
-# Obtenha o Principal ID do Container App
-PRINCIPAL_ID=$(az containerapp show \
-  --name ai-container-app \
-  --resource-group rg-ai-demo \
-  --query identity.principalId -o tsv)
-
-# Atribua role "Cognitive Services OpenAI User" ao modelo
-az role assignment create \
-  --role "Cognitive Services OpenAI User" \
-  --assignee $PRINCIPAL_ID \
-  --scope /subscriptions/<SUB_ID>/resourceGroups/<RG>/providers/Microsoft.CognitiveServices/accounts/<OPENAI_NAME>
-```
-
-Ou configure via portal:
-1. Acesse seu recurso **Azure AI Foundry**
-2. Vá em **Access Control (IAM)** > **Add role assignment**
-3. Role: **Cognitive Services OpenAI User**
-4. Assign access to: **Managed Identity**
-5. Selecione o Container App criado
+Isso ativa o Container App após as permissões estarem propagadas.
 
 ---
 
-### 🔧 Troubleshooting
+### 🛠️ **Opção 3: Deploy via CLI (Azure CLI + Bicep)**
 
-**Problema: "ContainerAppOperationError: Failed to provision revision" ou "Operation expired"**
+**Deploy manual para maior controle:**
 
-Isso geralmente ocorre quando o Container App não consegue fazer pull da imagem do ACR devido a permissões. 
+```bash
+cd infrastructure
+
+# Deploy do template
+./deploy.sh \
+  <resource-group> \
+  <container-app-name> \
+  <acr-name> \
+  <openai-endpoint> \
+  <openai-deployment> \
+  <openai-resource-id>
+
+# Aguarde 2-3 minutos e ative
+az containerapp update \
+  --name <container-app-name> \
+  --resource-group <resource-group> \
+  --min-replicas 1
+```
+
+---
+
+## 🔧 Troubleshooting
+
+### Problema: Container App não ativa após deploy
+
+**Sintoma:** Container App fica com 0 replicas ou falha ao iniciar
+
+**Causa:** Permissões de ACR ainda não propagaram globalmente (1-5 minutos)
 
 **Solução:**
 ```bash
-# 1. Verifique se o role AcrPull foi atribuído
-PRINCIPAL_ID=$(az containerapp show --name <SEU-APP> --resource-group <SEU-RG> --query "identity.principalId" -o tsv)
-az role assignment list --assignee $PRINCIPAL_ID --all --query "[?contains(roleDefinitionName, 'Acr')]" -o table
-
-# 2. Se não aparecer "AcrPull", atribua manualmente:
-ACR_ID=$(az acr show --name <SEU-ACR> --resource-group <SEU-RG> --query "id" -o tsv)
-az role assignment create --assignee $PRINCIPAL_ID --role "AcrPull" --scope $ACR_ID
-
-# 3. Force uma nova revisão:
-az containerapp update --name <SEU-APP> --resource-group <SEU-RG> --image <SEU-ACR>.azurecr.io/<IMAGEM>:latest
+# Aguarde 2-3 minutos após o deploy inicial e execute:
+az containerapp update \
+  --name <container-app-name> \
+  --resource-group <resource-group> \
+  --min-replicas 1
 ```
 
-**Problema: Imagem não encontrada no ACR**
+---
 
-Verifique se a imagem existe e o nome está correto:
+### Problema: "401 Unauthorized" ao chamar Azure OpenAI
+
+**Sintoma:** API retorna erro de autenticação
+
+**Causa:** Role "Cognitive Services OpenAI User" ainda não propagou
+
+**Solução:**
 ```bash
-# Liste imagens no ACR
-az acr repository list --name <SEU-ACR> -o table
+# Verifique se o role assignment existe
+PRINCIPAL_ID=$(az containerapp show \
+  --name <container-app-name> \
+  --resource-group <resource-group> \
+  --query identity.principalId -o tsv)
 
-# Liste tags da imagem
-az acr repository show-tags --name <SEU-ACR> --repository <NOME-IMAGEM> -o table
+az role assignment list --assignee $PRINCIPAL_ID --all -o table
+
+# Se não aparecer, aguarde mais 1-2 minutos ou force novamente
+```
+
+---
+
+### Problema: "Failed to provision revision" ou "Operation expired"
+
+**Sintoma:** Deploy falha com erro de provisionamento
+
+**Causa:** Container App tentou ativar antes das permissões de ACR propagarem
+
+**Solução:** Este problema foi resolvido! O template já cria o Container App com `minReplicas: 0`. Basta seguir o passo de ativação após aguardar 2-3 minutos.
+
+---
+
+### Como verificar status do Container App
+
+```bash
+# Ver status geral
+az containerapp show \
+  --name <container-app-name> \
+  --resource-group <resource-group> \
+  --query "{Status:properties.provisioningState, Replicas:properties.template.scale, URL:properties.configuration.ingress.fqdn}" -o table
+
+# Ver logs
+az containerapp logs show \
+  --name <container-app-name> \
+  --resource-group <resource-group> \
+  --follow
 ```
 
 ---
@@ -350,13 +426,18 @@ Azure Functions does not automatically generate OpenAPI documentation, but you c
 
 ---
 
-## 📖 Additional Resources
+## 📚 Additional Resources
 
-- [Container Apps Documentation](./container-app/README.md)
-- [Azure Functions Documentation](./azure-functions/README.md)
+### Documentation
+- **[GitHub Actions Setup Guide](.github/GITHUB_ACTIONS_SETUP.md)** - Complete CI/CD configuration
+- [Azure Container Apps Best Practices](https://learn.microsoft.com/en-us/azure/well-architected/service-guides/azure-container-apps)
+- [Deploy Bicep with GitHub Actions](https://learn.microsoft.com/en-us/azure/azure-resource-manager/bicep/deploy-github-actions)
+- [Azure RBAC Troubleshooting](https://learn.microsoft.com/en-us/azure/role-based-access-control/troubleshooting)
+
+### Pricing
 - [Azure Container Apps Pricing](https://azure.microsoft.com/pricing/details/container-apps/)
 - [Azure Functions Pricing](https://azure.microsoft.com/pricing/details/functions/)
-- [Azure OpenAI Service](https://azure.microsoft.com/products/cognitive-services/openai-service/)
+- [Azure OpenAI Service Pricing](https://azure.microsoft.com/pricing/details/cognitive-services/openai-service/)
 
 ---
 
