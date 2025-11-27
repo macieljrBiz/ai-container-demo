@@ -4,7 +4,18 @@
 Andressa Siqueira - [ansiqueira@microsoft.com](mailto:ansiqueira@microsoft.com)  
 Vicente Maciel Jr - [vicentem@microsoft.com](mailto:vicentem@microsoft.com)
 
-A demonstration of Azure OpenAI integration using **managed identity authentication** with **professional CI/CD deployment** following Microsoft Well-Architected Framework best practices.
+---
+
+## 📝 Sobre o Projeto
+
+Demonstração de integração com **Azure OpenAI** usando **autenticação por Managed Identity** e **deploy profissional via CI/CD**, seguindo as melhores práticas do **Microsoft Well-Architected Framework**.
+
+Este projeto ilustra como:
+- 🤖 Integrar Azure OpenAI de forma segura (sem chaves de API hardcoded)
+- 🔐 Usar Managed Identity para autenticação
+- 🚀 Implementar CI/CD profissional com GitHub Actions e OIDC
+- 📦 Deployar containerizados em Azure Container Apps
+- ⚡ Lidar com propagação de permissões do Azure RBAC
 
 **Deployment:**
 - **Azure Container Apps** - Serverless container platform with scale-to-zero
@@ -148,10 +159,32 @@ ai-container-demo/
 ### Resumo Rápido:
 
 1. **Setup OIDC** (uma vez):
+   
+   **PowerShell:**
+   ```powershell
+   # Criar Service Principal
+   $SUBSCRIPTION_ID = az account show --query id -o tsv
+   az ad sp create-for-rbac `
+     --name "sp-github-oidc-setup" `
+     --role "Owner" `
+     --scopes "/subscriptions/$SUBSCRIPTION_ID" `
+     --sdk-auth
+   
+   # Configurar AZURE_SETUP_CREDENTIALS no GitHub
+   # Executar workflow: 0️⃣ Setup OIDC
+   # Configurar 3 secrets OIDC
+   # Executar workflow: 3️⃣ Cleanup Service Principal
+   ```
+   
+   **Bash:**
    ```bash
    # Criar Service Principal
-   az ad sp create-for-rbac --name "sp-github-oidc-setup" \
-     --role "Owner" --scopes "/subscriptions/<SUBSCRIPTION-ID>" --sdk-auth
+   SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+   az ad sp create-for-rbac \
+     --name "sp-github-oidc-setup" \
+     --role "Owner" \
+     --scopes "/subscriptions/$SUBSCRIPTION_ID" \
+     --sdk-auth
    
    # Configurar AZURE_SETUP_CREDENTIALS no GitHub
    # Executar workflow: 0️⃣ Setup OIDC

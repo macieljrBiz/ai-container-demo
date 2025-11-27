@@ -18,6 +18,20 @@ Este guia configura deploy automático via GitHub Actions com autenticação OID
 
 Execute no Azure CLI (uma vez apenas):
 
+**PowerShell:**
+```powershell
+# Obter Subscription ID
+$SUBSCRIPTION_ID = az account show --query id -o tsv
+
+# Criar Service Principal com role Owner
+az ad sp create-for-rbac `
+  --name "sp-github-oidc-setup" `
+  --role "Owner" `
+  --scopes "/subscriptions/$SUBSCRIPTION_ID" `
+  --sdk-auth
+```
+
+**Bash/Linux:**
 ```bash
 # Obter Subscription ID
 SUBSCRIPTION_ID=$(az account show --query id -o tsv)
@@ -213,6 +227,16 @@ Agora você pode fazer deploy:
 ### Erro ao chamar OpenAI API
 **Causa:** OpenAI Resource ID incorreto  
 **Solução:** Obtenha o Resource ID correto:
+
+**PowerShell:**
+```powershell
+az cognitiveservices account show `
+  --name <OPENAI-NAME> `
+  --resource-group <OPENAI-RG> `
+  --query id -o tsv
+```
+
+**Bash:**
 ```bash
 az cognitiveservices account show \
   --name <OPENAI-NAME> \
