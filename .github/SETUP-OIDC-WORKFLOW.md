@@ -98,9 +98,38 @@ Após o workflow terminar com sucesso:
    - Name: `AZURE_SUBSCRIPTION_ID`
    - Value: `<valor exibido no log>`
 
-## 🧹 Passo 5: Limpeza (Opcional mas Recomendado)
+## 🧹 Passo 5: Limpeza Automatizada (Recomendado)
 
-Após configurar os 3 secrets do OIDC, você pode **deletar o Service Principal temporário**:
+Após configurar os 3 secrets do OIDC, **delete o Service Principal usando o workflow automatizado**:
+
+### **Opção A: Workflow Automatizado (RECOMENDADO)** ✅
+
+1. Vá para: `https://github.com/<SEU-ORG>/<SEU-REPO>/actions`
+
+2. Clique no workflow: **3️⃣ Cleanup Service Principal**
+
+3. Clique em **Run workflow**
+
+4. Preencha:
+   - **Service Principal Name:** `sp-github-oidc-setup`
+   - **Confirm Deletion:** `DELETE` (digite exatamente)
+
+5. Clique em **Run workflow**
+
+6. O workflow irá:
+   - ✅ Validar que você confirmou a deleção
+   - ✅ Buscar o Service Principal
+   - ✅ Deletar o Service Principal
+   - ✅ Exibir próximos passos
+
+7. **Delete o secret `AZURE_SETUP_CREDENTIALS`** do GitHub:
+   - Vá para: `https://github.com/<SEU-ORG>/<SEU-REPO>/settings/secrets/actions`
+   - Encontre `AZURE_SETUP_CREDENTIALS`
+   - Clique em **Remove**
+
+### **Opção B: Limpeza Manual** (Alternativa)
+
+Se preferir fazer manualmente via Azure CLI:
 
 ```bash
 # Listar Service Principals para encontrar o ID
@@ -131,11 +160,16 @@ flowchart TD
     B --> C[Executar Workflow<br/>0️⃣ Setup OIDC]
     C --> D[Copiar valores do log<br/>CLIENT_ID, TENANT_ID, SUBSCRIPTION_ID]
     D --> E[Configurar 3 Secrets<br/>AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID]
-    E --> F[Deletar Service Principal<br/>opcional mas recomendado]
-    F --> G[Executar Workflow<br/>1️⃣ Deploy Infrastructure]
-    G --> H[Aguardar 2-3 minutos]
-    H --> I[Executar Workflow<br/>2️⃣ Activate Container App]
-    I --> J[✅ Container App Online!]
+    E --> F[Executar Workflow<br/>3️⃣ Cleanup Service Principal]
+    F --> G[Deletar Secret<br/>AZURE_SETUP_CREDENTIALS]
+    G --> H[Executar Workflow<br/>1️⃣ Deploy Infrastructure]
+    H --> I[Aguardar 2-3 minutos]
+    I --> J[Executar Workflow<br/>2️⃣ Activate Container App]
+    J --> K[✅ Container App Online!]
+    
+    style F fill:#ff6b6b
+    style G fill:#ff6b6b
+    style K fill:#51cf66
 ```
 
 ## 🆚 Comparação: Workflow vs Script Local

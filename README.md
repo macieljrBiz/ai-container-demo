@@ -22,9 +22,14 @@ A demonstration of Azure OpenAI integration using **managed identity authenticat
 ai-container-demo/
 ├── .github/
 │   ├── workflows/
+│   │   ├── setup-oidc.yml               # 0️⃣ Setup OIDC (automated)
+│   │   ├── cleanup-service-principal.yml # 3️⃣ Cleanup Service Principal
 │   │   ├── deploy-infrastructure.yml    # 1️⃣ Deploy Bicep template
 │   │   ├── activate-container-app.yml   # 2️⃣ Activate after role propagation
 │   │   └── build-images.yml             # Build Docker images to ACR
+│   ├── setup-oidc.ps1                   # OIDC setup script (Windows)
+│   ├── setup-oidc.sh                    # OIDC setup script (Linux/macOS)
+│   ├── SETUP-OIDC-WORKFLOW.md           # Guide for workflow-based setup
 │   └── GITHUB_ACTIONS_SETUP.md          # Complete setup guide for CI/CD
 │
 ├── container-app/           # FastAPI application for Azure Container Apps
@@ -156,24 +161,98 @@ ai-container-demo/
 
 **📚 Documentação completa:** [.github/GITHUB_ACTIONS_SETUP.md](.github/GITHUB_ACTIONS_SETUP.md)
 
-**Resumo do processo:**
+#### 🚀 Setup Rápido (3 opções)
 
-1. **Configure OIDC no Azure** (5 minutos)
+**Escolha UMA das opções abaixo para configurar OIDC:**
+
+<details>
+<summary><strong>🤖 Opção A: Workflow Automatizado (GitHub Actions)</strong> - Recomendado para equipes</summary>
+
+1. **Criar Service Principal** (uma vez):
    ```bash
-   # Criar Managed Identity
-   # Atribuir roles (Contributor + User Access Administrator)
-   # Configurar Federated Credential
+   az ad sp create-for-rbac \
+     --name "sp-github-oidc-setup" \
+     --role "Owner" \
+     --scopes "/subscriptions/<SUA-SUBSCRIPTION-ID>" \
+     --sdk-auth
    ```
 
-2. **Configure Secrets no GitHub** (2 minutos)
+2. **Configurar Secret** no GitHub:
+   - Nome: `AZURE_SETUP_CREDENTIALS`
+   - Valor: Output JSON do comando anterior
+
+3. **Executar Workflow**:
+   - GitHub Actions → **0️⃣ Setup OIDC** → Run workflow
+   - Copiar 3 valores do log (CLIENT_ID, TENANT_ID, SUBSCRIPTION_ID)
+
+4. **Configurar Secrets** do OIDC no GitHub:
    - `AZURE_CLIENT_ID`
    - `AZURE_TENANT_ID`
    - `AZURE_SUBSCRIPTION_ID`
 
-3. **Execute os Workflows**
-   - **Actions** → **1️⃣ Deploy Infrastructure** → Run workflow
-   - **Aguarde 2-3 minutos** ⏰ (role propagation)
-   - **Actions** → **2️⃣ Activate Container App** → Run workflow
+5. **Cleanup automatizado**:
+   - GitHub Actions → **3️⃣ Cleanup Service Principal** → Run workflow
+   - Digite `DELETE` para confirmar
+   - Delete secret `AZURE_SETUP_CREDENTIALS` do GitHub
+
+📖 **Guia completo:** [.github/SETUP-OIDC-WORKFLOW.md](.github/SETUP-OIDC-WORKFLOW.md)
+
+</details>
+
+<details>
+<summary><strong>💻 Opção B: Script PowerShell (Windows)</strong> - Recomendado para uso individual</summary>
+
+Execute localmente (requer `az login`):
+```powershell
+.github/setup-oidc.ps1
+```
+
+O script irá:
+- ✅ Validar Azure CLI e autenticação
+- ✅ Pedir informações necessárias (com valores padrão)
+- ✅ Criar Managed Identity
+- ✅ Atribuir roles (Contributor + User Access Administrator)
+- ✅ Criar Federated Credential
+- ✅ Exibir os 3 valores para configurar no GitHub
+
+Depois, configure os 3 secrets no GitHub com os valores exibidos.
+
+</details>
+
+<details>
+<summary><strong>🐧 Opção C: Script Bash (Linux/macOS)</strong> - Recomendado para uso individual</summary>
+
+Execute localmente (requer `az login`):
+```bash
+bash .github/setup-oidc.sh
+```
+
+O script irá:
+- ✅ Validar Azure CLI e autenticação
+- ✅ Pedir informações necessárias (com valores padrão)
+- ✅ Criar Managed Identity
+- ✅ Atribuir roles (Contributor + User Access Administrator)
+- ✅ Criar Federated Credential
+- ✅ Exibir os 3 valores para configurar no GitHub
+
+Depois, configure os 3 secrets no GitHub com os valores exibidos.
+
+</details>
+
+---
+
+#### 🎯 Executar Workflows de Deploy
+
+Após configurar os secrets do OIDC:
+
+1. **Deploy Infrastructure**
+   - GitHub Actions → **1️⃣ Deploy Infrastructure** → Run workflow
+   - Preencha os parâmetros (ou use valores padrão)
+
+2. **Aguarde 2-3 minutos** ⏰ (role propagation)
+
+3. **Activate Container App**
+   - GitHub Actions → **2️⃣ Activate Container App** → Run workflow
 
 **Resultado:** Container App deployado, configurado e ativo automaticamente! 🎉
 

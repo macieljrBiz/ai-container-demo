@@ -1,0 +1,120 @@
+name: 3️⃣ Cleanup Service Principal (One-Time)
+
+on:
+  workflow_dispatch:
+    inputs:
+      servicePrincipalName:
+        description: 'Service Principal Name to delete'
+        required: true
+        default: 'sp-github-oidc-setup'
+      confirmDeletion:
+        description: 'Type DELETE to confirm deletion'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup-service-principal:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: ✅ Validar confirmação
+        run: |
+          if [ "${{ github.event.inputs.confirmDeletion }}" != "DELETE" ]; then
+            echo "❌ ERRO: Confirmação inválida"
+            echo ""
+            echo "Para deletar o Service Principal, você deve:"
+            echo "1. Digite exatamente: DELETE"
+            echo "2. Execute novamente este workflow"
+            echo ""
+            echo "⚠️  IMPORTANTE: Certifique-se de que:"
+            echo "   ✅ Os 3 secrets OIDC já estão configurados:"
+            echo "      - AZURE_CLIENT_ID"
+            echo "      - AZURE_TENANT_ID"
+            echo "      - AZURE_SUBSCRIPTION_ID"
+            echo "   ✅ Você testou o workflow '1️⃣ Deploy Infrastructure' com OIDC"
+            echo ""
+            exit 1
+          fi
+          
+          echo "✅ Confirmação válida, prosseguindo com limpeza..."
+      
+      - name: 🔐 Login no Azure com Service Principal
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_SETUP_CREDENTIALS }}
+      
+      - name: 🔍 Verificar Service Principal
+        id: check_sp
+        run: |
+          echo "🔍 Procurando Service Principal: ${{ github.event.inputs.servicePrincipalName }}"
+          
+          SP_INFO=$(az ad sp list --display-name "${{ github.event.inputs.servicePrincipalName }}" --query "[0].{AppId:appId, DisplayName:displayName, ObjectId:id}" -o json)
+          
+          if [ "$SP_INFO" == "null" ] || [ -z "$SP_INFO" ]; then
+            echo "⚠️  Service Principal não encontrado"
+            echo "   Nome buscado: ${{ github.event.inputs.servicePrincipalName }}"
+            echo ""
+            echo "Possíveis causas:"
+            echo "1. Já foi deletado anteriormente"
+            echo "2. Nome incorreto (verifique o nome usado na criação)"
+            echo "3. Você não tem permissão para visualizar"
+            echo ""
+            echo "sp_exists=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          APP_ID=$(echo "$SP_INFO" | jq -r '.AppId')
+          DISPLAY_NAME=$(echo "$SP_INFO" | jq -r '.DisplayName')
+          OBJECT_ID=$(echo "$SP_INFO" | jq -r '.ObjectId')
+          
+          echo "✅ Service Principal encontrado:"
+          echo "   Display Name: $DISPLAY_NAME"
+          echo "   App ID: $APP_ID"
+          echo "   Object ID: $OBJECT_ID"
+          echo ""
+          
+          echo "sp_exists=true" >> $GITHUB_OUTPUT
+          echo "app_id=$APP_ID" >> $GITHUB_OUTPUT
+      
+      - name: 🗑️ Deletar Service Principal
+        if: steps.check_sp.outputs.sp_exists == 'true'
+        run: |
+          echo "🗑️  Deletando Service Principal..."
+          
+          az ad sp delete --id ${{ steps.check_sp.outputs.app_id }}
+          
+          echo "✅ Service Principal deletado com sucesso!"
+          echo ""
+          echo "App ID deletado: ${{ steps.check_sp.outputs.app_id }}"
+      
+      - name: 📋 Próximos passos
+        run: |
+          echo "====================================="
+          echo "   ✅ LIMPEZA CONCLUÍDA!            "
+          echo "====================================="
+          echo ""
+          
+          if [ "${{ steps.check_sp.outputs.sp_exists }}" == "true" ]; then
+            echo "✅ Service Principal foi deletado com sucesso"
+            echo ""
+            echo "📋 PRÓXIMOS PASSOS:"
+            echo ""
+            echo "1. Delete o secret AZURE_SETUP_CREDENTIALS do GitHub:"
+            echo "   https://github.com/${{ github.repository }}/settings/secrets/actions"
+            echo ""
+            echo "2. A partir de agora, todos os deploys usarão OIDC (mais seguro)"
+            echo ""
+            echo "3. Execute os workflows de deploy:"
+            echo "   ▶️  1️⃣ Deploy Infrastructure"
+            echo "   ⏰ Aguarde 2-3 minutos"
+            echo "   ▶️  2️⃣ Activate Container App"
+            echo ""
+            echo "🎉 Setup enterprise completo!"
+          else
+            echo "⚠️  Service Principal não foi encontrado (pode já ter sido deletado)"
+            echo ""
+            echo "✅ Você pode prosseguir com os deploys usando OIDC"
+          fi
+          echo ""
