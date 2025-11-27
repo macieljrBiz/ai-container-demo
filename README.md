@@ -174,9 +174,25 @@ Clique no botão abaixo e preencha:
 
 [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FmacieljrBiz%2Fai-container-demo%2Frefs%2Fheads%2Fmain%2Finfrastructure%2Fcontainer-app-complete.json)
 
-**Passo 3: Configure Managed Identity (IMPORTANTE)**
+> **⚠️ NOTA**: O Container App inicia com `minReplicas: 0` para evitar falhas enquanto as permissões propagam. Após o deploy, siga o Passo 3 para ativá-lo.
 
-Após o deploy, configure o acesso do Container App ao AI Foundry:
+**Passo 3: Ative o Container App (IMPORTANTE)**
+
+Após o deploy concluir, aguarde 1-2 minutos e execute:
+
+```bash
+# Ative o Container App (escala de 0 para 1)
+az containerapp update \
+  --name <CONTAINER_APP_NAME> \
+  --resource-group <RESOURCE_GROUP> \
+  --min-replicas 1
+```
+
+Isso garante que as permissões de ACR estejam propagadas antes de fazer pull da imagem.
+
+**Passo 4: Configure acesso ao AI Foundry**
+
+Configure o acesso do Container App ao AI Foundry:
 
 ```bash
 # Obtenha o Principal ID do Container App
@@ -198,6 +214,39 @@ Ou configure via portal:
 3. Role: **Cognitive Services OpenAI User**
 4. Assign access to: **Managed Identity**
 5. Selecione o Container App criado
+
+---
+
+### 🔧 Troubleshooting
+
+**Problema: "ContainerAppOperationError: Failed to provision revision" ou "Operation expired"**
+
+Isso geralmente ocorre quando o Container App não consegue fazer pull da imagem do ACR devido a permissões. 
+
+**Solução:**
+```bash
+# 1. Verifique se o role AcrPull foi atribuído
+PRINCIPAL_ID=$(az containerapp show --name <SEU-APP> --resource-group <SEU-RG> --query "identity.principalId" -o tsv)
+az role assignment list --assignee $PRINCIPAL_ID --all --query "[?contains(roleDefinitionName, 'Acr')]" -o table
+
+# 2. Se não aparecer "AcrPull", atribua manualmente:
+ACR_ID=$(az acr show --name <SEU-ACR> --resource-group <SEU-RG> --query "id" -o tsv)
+az role assignment create --assignee $PRINCIPAL_ID --role "AcrPull" --scope $ACR_ID
+
+# 3. Force uma nova revisão:
+az containerapp update --name <SEU-APP> --resource-group <SEU-RG> --image <SEU-ACR>.azurecr.io/<IMAGEM>:latest
+```
+
+**Problema: Imagem não encontrada no ACR**
+
+Verifique se a imagem existe e o nome está correto:
+```bash
+# Liste imagens no ACR
+az acr repository list --name <SEU-ACR> -o table
+
+# Liste tags da imagem
+az acr repository show-tags --name <SEU-ACR> --repository <NOME-IMAGEM> -o table
+```
 
 ---
 

@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.38.33.27573",
-      "templateHash": "13826363292357488244"
+      "templateHash": "3285223756610785468"
     }
   },
   "parameters": {
@@ -26,6 +26,13 @@
       "defaultValue": "ai-container-app:latest",
       "metadata": {
         "description": "Nome completo da imagem (ex: ai-container-app:latest)"
+      }
+    },
+    "openAiResourceId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Resource ID completo do Azure OpenAI (opcional - se fornecido, configura acesso automático)"
       }
     }
   },
@@ -75,6 +82,7 @@
       "properties": {
         "managedEnvironmentId": "[resourceId('Microsoft.App/managedEnvironments', variables('containerAppEnvName'))]",
         "configuration": {
+          "activeRevisionsMode": "Single",
           "ingress": {
             "external": true,
             "targetPort": 8000,
@@ -99,7 +107,7 @@
             }
           ],
           "scale": {
-            "minReplicas": 1,
+            "minReplicas": 0,
             "maxReplicas": 3
           }
         }
@@ -117,6 +125,69 @@
         "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')]",
         "principalId": "[reference(resourceId('Microsoft.App/containerApps', parameters('containerAppName')), '2023-05-01', 'full').identity.principalId]",
         "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.App/containerApps', parameters('containerAppName'))]"
+      ]
+    },
+    {
+      "condition": "[not(empty(parameters('openAiResourceId')))]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('{0}-openai-role', parameters('containerAppName'))]",
+      "subscriptionId": "[split(parameters('openAiResourceId'), '/')[2]]",
+      "resourceGroup": "[split(parameters('openAiResourceId'), '/')[4]]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "principalId": {
+            "value": "[reference(resourceId('Microsoft.App/containerApps', parameters('containerAppName')), '2023-05-01', 'full').identity.principalId]"
+          },
+          "openAiAccountName": {
+            "value": "[last(split(parameters('openAiResourceId'), '/'))]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.38.33.27573",
+              "templateHash": "17125386576854405778"
+            }
+          },
+          "parameters": {
+            "principalId": {
+              "type": "string",
+              "metadata": {
+                "description": "Principal ID do Container App"
+              }
+            },
+            "openAiAccountName": {
+              "type": "string",
+              "metadata": {
+                "description": "Nome do Azure OpenAI account"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[format('Microsoft.CognitiveServices/accounts/{0}', parameters('openAiAccountName'))]",
+              "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', parameters('openAiAccountName')), parameters('principalId'), 'CognitiveServicesOpenAIUser')]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd')]",
+                "principalId": "[parameters('principalId')]",
+                "principalType": "ServicePrincipal"
+              }
+            }
+          ]
+        }
       },
       "dependsOn": [
         "[resourceId('Microsoft.App/containerApps', parameters('containerAppName'))]"

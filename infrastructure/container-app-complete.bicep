@@ -23,6 +23,9 @@ param acrName string
 @description('Nome completo da imagem (ex: ai-container-app:latest)')
 param containerImageName string = 'ai-container-app:latest'
 
+@description('Resource ID completo do Azure OpenAI (opcional - se fornecido, configura acesso automático)')
+param openAiResourceId string = ''
+
 // ============================================================================
 // 1. REFERÊNCIA AO ACR EXISTENTE
 // ============================================================================
@@ -69,6 +72,7 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
   properties: {
     managedEnvironmentId: containerAppEnv.id
     configuration: {
+      activeRevisionsMode: 'Single'
       ingress: {
         external: true
         targetPort: 8000
@@ -93,7 +97,7 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
         }
       ]
       scale: {
-        minReplicas: 1
+        minReplicas: 0
         maxReplicas: 3
       }
     }
@@ -101,8 +105,10 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
 }
 
 // ============================================================================
-// ROLE ASSIGNMENT - Permitir Container App puxar imagens do ACR
+// 4. ROLE ASSIGNMENTS
 // ============================================================================
+
+// 4.1. AcrPull - Permitir Container App puxar imagens do ACR
 resource acrPullRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(acr.id, containerApp.id, 'AcrPull')
   scope: acr
@@ -110,6 +116,16 @@ resource acrPullRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d') // AcrPull
     principalId: containerApp.identity.principalId
     principalType: 'ServicePrincipal'
+  }
+}
+
+// 4.2. Cognitive Services OpenAI User - Apenas se openAiResourceId foi fornecido
+module openAiRoleAssignment './openai-role.bicep' = if (!empty(openAiResourceId)) {
+  name: '${containerAppName}-openai-role'
+  scope: resourceGroup(split(openAiResourceId, '/')[2], split(openAiResourceId, '/')[4])
+  params: {
+    principalId: containerApp.identity.principalId
+    openAiAccountName: last(split(openAiResourceId, '/'))
   }
 }
 

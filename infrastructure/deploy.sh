@@ -30,6 +30,7 @@ LOCATION="eastus"
 CONTAINER_APP_NAME="ai-container-app"
 ACR_NAME="SEU_ACR_EXISTENTE"  # ⚠️ EDITE: nome do ACR já existente
 CONTAINER_IMAGE_NAME="ai-container-app:latest"
+OPENAI_RESOURCE_ID=""  # OPCIONAL: /subscriptions/.../resourceGroups/.../providers/Microsoft.CognitiveServices/accounts/...
 
 # ============================================================================
 # VALIDAÇÃO DE PRÉ-REQUISITOS
@@ -92,7 +93,8 @@ az deployment group create \
   --parameters \
     containerAppName=$CONTAINER_APP_NAME \
     acrName=$ACR_NAME \
-    containerImageName=$CONTAINER_IMAGE_NAME
+    containerImageName=$CONTAINER_IMAGE_NAME \
+    openAiResourceId="$OPENAI_RESOURCE_ID"
 
 # ============================================================================
 # OUTPUTS
