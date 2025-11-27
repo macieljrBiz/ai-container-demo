@@ -6,13 +6,9 @@ Vicente Maciel Jr - [vicentem@microsoft.com](mailto:vicentem@microsoft.com)
 
 A demonstration of Azure OpenAI integration using **managed identity authentication** with **professional CI/CD deployment** following Microsoft Well-Architected Framework best practices.
 
-**Deployment Options:**
+**Deployment:**
 - **Azure Container Apps** - Serverless container platform with scale-to-zero
-- **Azure Functions** - Event-driven serverless compute with containerized Python runtime
-
-**CI/CD:**
-- **GitHub Actions** - Automated deployment with OIDC authentication (recommended)
-- **Deploy Buttons** - One-click Azure Portal deployment (alternative)
+- **GitHub Actions** - Automated CI/CD with OIDC authentication
 
 ---
 
@@ -25,12 +21,8 @@ ai-container-demo/
 │   │   ├── setup-oidc.yml               # 0️⃣ Setup OIDC (automated)
 │   │   ├── cleanup-service-principal.yml # 3️⃣ Cleanup Service Principal
 │   │   ├── deploy-infrastructure.yml    # 1️⃣ Deploy Bicep template
-│   │   ├── activate-container-app.yml   # 2️⃣ Activate after role propagation
-│   │   └── build-images.yml             # Build Docker images to ACR
-│   ├── setup-oidc.ps1                   # OIDC setup script (Windows)
-│   ├── setup-oidc.sh                    # OIDC setup script (Linux/macOS)
-│   ├── SETUP-OIDC-WORKFLOW.md           # Guide for workflow-based setup
-│   └── GITHUB_ACTIONS_SETUP.md          # Complete setup guide for CI/CD
+│   │   └── activate-container-app.yml   # 2️⃣ Activate after role propagation
+│   └── README.md                        # Complete setup guide
 │
 ├── container-app/           # FastAPI application for Azure Container Apps
 │   ├── main.py             # FastAPI application code
@@ -149,63 +141,37 @@ ai-container-demo/
 
 ---
 
-## 🚀 Deployment Options
+## 🚀 Deploy via GitHub Actions
 
-### ✅ **Opção 1: GitHub Actions (RECOMENDADO)** 
+**📚 Guia completo:** [.github/README.md](.github/README.md)
 
-**Deployment profissional seguindo melhores práticas da Microsoft:**
-- ✅ **OIDC Authentication** (sem secrets de senha)
-- ✅ **Separação de responsabilidades** (infraestrutura ≠ aplicação)
-- ✅ **Rastreabilidade completa** de deployments
-- ✅ **Alinhado com Well-Architected Framework**
+### Resumo Rápido:
 
-**📚 Documentação completa:** [.github/GITHUB_ACTIONS_SETUP.md](.github/GITHUB_ACTIONS_SETUP.md)
-
-#### 🚀 Setup Rápido (3 opções)
-
-**Escolha UMA das opções abaixo para configurar OIDC:**
-
-<details>
-<summary><strong>🤖 Opção A: Workflow Automatizado (GitHub Actions)</strong> - Recomendado para equipes</summary>
-
-1. **Criar Service Principal** (uma vez):
+1. **Setup OIDC** (uma vez):
    ```bash
-   az ad sp create-for-rbac \
-     --name "sp-github-oidc-setup" \
-     --role "Owner" \
-     --scopes "/subscriptions/<SUA-SUBSCRIPTION-ID>" \
-     --sdk-auth
+   # Criar Service Principal
+   az ad sp create-for-rbac --name "sp-github-oidc-setup" \
+     --role "Owner" --scopes "/subscriptions/<SUBSCRIPTION-ID>" --sdk-auth
+   
+   # Configurar AZURE_SETUP_CREDENTIALS no GitHub
+   # Executar workflow: 0️⃣ Setup OIDC
+   # Configurar 3 secrets OIDC
+   # Executar workflow: 3️⃣ Cleanup Service Principal
    ```
 
-2. **Configurar Secret** no GitHub:
-   - Nome: `AZURE_SETUP_CREDENTIALS`
-   - Valor: Output JSON do comando anterior
+2. **Deploy** (sempre):
+   ```
+   Executar: 1️⃣ Deploy Infrastructure
+   Aguardar: 2-3 minutos
+   Executar: 2️⃣ Activate Container App
+   ```
 
-3. **Executar Workflow**:
-   - GitHub Actions → **0️⃣ Setup OIDC** → Run workflow
-   - Copiar 3 valores do log (CLIENT_ID, TENANT_ID, SUBSCRIPTION_ID)
+---
 
-4. **Configurar Secrets** do OIDC no GitHub:
-   - `AZURE_CLIENT_ID`
-   - `AZURE_TENANT_ID`
-   - `AZURE_SUBSCRIPTION_ID`
-
-5. **Cleanup automatizado**:
-   - GitHub Actions → **3️⃣ Cleanup Service Principal** → Run workflow
-   - Digite `DELETE` para confirmar
-   - Delete secret `AZURE_SETUP_CREDENTIALS` do GitHub
-
-📖 **Guia completo:** [.github/SETUP-OIDC-WORKFLOW.md](.github/SETUP-OIDC-WORKFLOW.md)
-
-</details>
+## 🔘 Deploy Alternativo via Portal Azure
 
 <details>
-<summary><strong>💻 Opção B: Script PowerShell (Windows)</strong> - Recomendado para uso individual</summary>
-
-Execute localmente (requer `az login`):
-```powershell
-.github/setup-oidc.ps1
-```
+<summary>Click to expand</summary>
 
 O script irá:
 - ✅ Validar Azure CLI e autenticação
@@ -238,102 +204,7 @@ O script irá:
 Depois, configure os 3 secrets no GitHub com os valores exibidos.
 
 </details>
-
----
-
-#### 🎯 Executar Workflows de Deploy
-
-Após configurar os secrets do OIDC:
-
-1. **Deploy Infrastructure**
-   - GitHub Actions → **1️⃣ Deploy Infrastructure** → Run workflow
-   - Preencha os parâmetros (ou use valores padrão)
-
-2. **Aguarde 2-3 minutos** ⏰ (role propagation)
-
-3. **Activate Container App**
-   - GitHub Actions → **2️⃣ Activate Container App** → Run workflow
-
-**Resultado:** Container App deployado, configurado e ativo automaticamente! 🎉
-
----
-
-### 🔘 **Opção 2: Deploy Button (Portal Azure)**
-
-**Deploy rápido com um clique** (ideal para testes):
-
-#### Container Apps
-
-**Pré-requisitos:**
-1. Azure Container Registry (ACR) criado
-2. Imagem Docker já construída no ACR
-
-**Passo 1: Build da imagem**
-```bash
-# Criar ACR (apenas uma vez)
-az acr create \
-  --resource-group rg-ai-demo \
-  --name myacr123 \
-  --sku Basic
-
-# Build da imagem
-az acr build \
-  --registry myacr123 \
-  --image ai-container-app:latest \
-  --file container-app/Dockerfile \
-  container-app
-```
-
-**Passo 2: Deploy via Portal**
-
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FmacieljrBiz%2Fai-container-demo%2Frefs%2Fheads%2Fmain%2Finfrastructure%2Fcontainer-app-complete.json)
-
-Preencha os parâmetros:
-- **Container App Name**: Nome do seu container
-- **ACR Name**: Nome do ACR criado no Passo 1
-- **Azure OpenAI Endpoint**: `https://seu-modelo.openai.azure.com/`
-- **Azure OpenAI Deployment**: Nome do deployment (ex: `gpt-4o`)
-- **OpenAI Resource ID**: Resource ID completo do Azure OpenAI
-
-> **⚠️ IMPORTANTE**: O Container App inicia com `minReplicas: 0` para evitar falhas durante propagação de permissões.
-
-**Passo 3: Ativar o Container App (OBRIGATÓRIO)**
-
-Aguarde **2-3 minutos** após o deploy e execute:
-
-```bash
-az containerapp update \
-  --name <CONTAINER_APP_NAME> \
-  --resource-group <RESOURCE_GROUP> \
-  --min-replicas 1
-```
-
-Isso ativa o Container App após as permissões estarem propagadas.
-
----
-
-### 🛠️ **Opção 3: Deploy via CLI (Azure CLI + Bicep)**
-
-**Deploy manual para maior controle:**
-
-```bash
-cd infrastructure
-
-# Deploy do template
-./deploy.sh \
-  <resource-group> \
-  <container-app-name> \
-  <acr-name> \
-  <openai-endpoint> \
-  <openai-deployment> \
-  <openai-resource-id>
-
-# Aguarde 2-3 minutos e ative
-az containerapp update \
-  --name <container-app-name> \
-  --resource-group <resource-group> \
-  --min-replicas 1
-```
+</details>
 
 ---
 
