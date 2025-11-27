@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.38.33.27573",
-      "templateHash": "12515919689820000352"
+      "templateHash": "18214238170464516338"
     }
   },
   "parameters": {
@@ -32,6 +32,13 @@
       "defaultValue": "gpt-4o",
       "metadata": {
         "description": "Nome do deployment do Azure OpenAI (ex: gpt-4o)"
+      }
+    },
+    "containerImageName": {
+      "type": "string",
+      "defaultValue": "ai-container-app:latest",
+      "metadata": {
+        "description": "Nome da imagem do container (ex: ai-container-app:latest)"
       }
     }
   },
@@ -109,7 +116,7 @@
           "containers": [
             {
               "name": "app",
-              "image": "[format('{0}/ai-container-app:latest', reference(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), '2023-01-01-preview').loginServer)]",
+              "image": "[format('{0}/{1}', reference(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), '2023-01-01-preview').loginServer, parameters('containerImageName'))]",
               "resources": {
                 "cpu": "[json('0.5')]",
                 "memory": "1Gi"

@@ -17,6 +17,7 @@ $CONTAINER_APP_NAME = "ai-container-app"
 $ACR_NAME = "acrai$(Get-Random -Maximum 99999)"  # Nome único
 $AZURE_OPENAI_ENDPOINT = "https://YOUR_OPENAI_ENDPOINT.openai.azure.com/"
 $AZURE_OPENAI_DEPLOYMENT = "gpt-4o"
+$CONTAINER_IMAGE_NAME = "ai-container-app:latest"
 
 # ============================================================================
 # VALIDAÇÃO
@@ -26,6 +27,7 @@ Write-Host "  Resource Group: $RESOURCE_GROUP"
 Write-Host "  Location: $LOCATION"
 Write-Host "  Container App: $CONTAINER_APP_NAME"
 Write-Host "  ACR: $ACR_NAME"
+Write-Host "  Container Image: $CONTAINER_IMAGE_NAME"
 Write-Host "  OpenAI Endpoint: $AZURE_OPENAI_ENDPOINT"
 Write-Host "  OpenAI Deployment: $AZURE_OPENAI_DEPLOYMENT"
 
@@ -59,7 +61,7 @@ az acr create `
 # Depois faz o build
 az acr build `
   --registry $ACR_NAME `
-  --image ai-container-app:latest `
+  --image $CONTAINER_IMAGE_NAME `
   --file ../container-app/Dockerfile `
   ../container-app
 
@@ -76,6 +78,7 @@ az deployment group create `
   --parameters `
     containerAppName=$CONTAINER_APP_NAME `
     acrName=$ACR_NAME `
+    containerImageName=$CONTAINER_IMAGE_NAME `
     azureOpenAIEndpoint=$AZURE_OPENAI_ENDPOINT `
     azureOpenAIDeployment=$AZURE_OPENAI_DEPLOYMENT
 

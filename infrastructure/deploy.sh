@@ -24,6 +24,7 @@ CONTAINER_APP_NAME="ai-container-app"
 ACR_NAME="acrai$(openssl rand -hex 4)"  # Nome único
 AZURE_OPENAI_ENDPOINT="https://YOUR_OPENAI_ENDPOINT.openai.azure.com/"
 AZURE_OPENAI_DEPLOYMENT="gpt-4o"
+CONTAINER_IMAGE_NAME="ai-container-app:latest"
 
 # ============================================================================
 # VALIDAÇÃO
@@ -33,6 +34,7 @@ echo "  Resource Group: $RESOURCE_GROUP"
 echo "  Location: $LOCATION"
 echo "  Container App: $CONTAINER_APP_NAME"
 echo "  ACR: $ACR_NAME"
+echo "  Container Image: $CONTAINER_IMAGE_NAME"
 echo "  OpenAI Endpoint: $AZURE_OPENAI_ENDPOINT"
 echo "  OpenAI Deployment: $AZURE_OPENAI_DEPLOYMENT"
 
@@ -67,7 +69,7 @@ az acr create \
 # Depois faz o build
 az acr build \
   --registry $ACR_NAME \
-  --image ai-container-app:latest \
+  --image $CONTAINER_IMAGE_NAME \
   --file ../container-app/Dockerfile \
   ../container-app
 
@@ -84,6 +86,7 @@ az deployment group create \
   --parameters \
     containerAppName=$CONTAINER_APP_NAME \
     acrName=$ACR_NAME \
+    containerImageName=$CONTAINER_IMAGE_NAME \
     azureOpenAIEndpoint=$AZURE_OPENAI_ENDPOINT \
     azureOpenAIDeployment=$AZURE_OPENAI_DEPLOYMENT
 

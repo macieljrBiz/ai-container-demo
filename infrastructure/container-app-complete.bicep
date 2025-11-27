@@ -25,6 +25,9 @@ param azureOpenAIEndpoint string
 @description('Nome do deployment do Azure OpenAI (ex: gpt-4o)')
 param azureOpenAIDeployment string = 'gpt-4o'
 
+@description('Nome da imagem do container (ex: ai-container-app:latest)')
+param containerImageName string = 'ai-container-app:latest'
+
 // ============================================================================
 // 1. ACR – Registro de container
 // ============================================================================
@@ -92,7 +95,7 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
       containers: [
         {
           name: 'app'
-          image: '${acr.properties.loginServer}/ai-container-app:latest'
+          image: '${acr.properties.loginServer}/${containerImageName}'
           resources: {
             cpu: json('0.5')
             memory: '1Gi'
