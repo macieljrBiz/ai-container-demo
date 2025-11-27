@@ -1,6 +1,12 @@
 #!/bin/bash
 # ============================================================================
-# Script de Deploy - Container App com Azure OpenAI
+# Script de Deploy - Container App (apenas infraestrutura)
+# ============================================================================
+# PRÉ-REQUISITOS:
+# 1. ACR já criado com a imagem construída
+# 2. Variáveis de ambiente configuradas na imagem Docker
+# 
+# Este script apenas cria o Container App apontando para o ACR existente
 # ============================================================================
 
 set -e
@@ -9,36 +15,57 @@ set -e
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
+RED='\033[0;31m'
 NC='\033[0m' # No Color
 
 echo -e "${BLUE}╔══════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║  Deploy: Container App + Azure OpenAI                   ║${NC}"
-echo -e "${BLUE}╔══════════════════════════════════════════════════════════╗${NC}"
+echo -e "${BLUE}║  Deploy: Container App (infraestrutura apenas)          ║${NC}"
+echo -e "${BLUE}╚══════════════════════════════════════════════════════════╝${NC}"
 
 # ============================================================================
-# PARÂMETROS (ajuste conforme necessário)
+# PARÂMETROS - Ajuste conforme necessário
 # ============================================================================
 RESOURCE_GROUP="rg-ai-container-demo"
 LOCATION="eastus"
 CONTAINER_APP_NAME="ai-container-app"
-ACR_NAME="acrai$(openssl rand -hex 4)"  # Nome único
-AZURE_OPENAI_ENDPOINT="https://YOUR_OPENAI_ENDPOINT.openai.azure.com/"
-AZURE_OPENAI_DEPLOYMENT="gpt-4o"
+ACR_NAME="SEU_ACR_EXISTENTE"  # ⚠️ EDITE: nome do ACR já existente
 CONTAINER_IMAGE_NAME="ai-container-app:latest"
 
 # ============================================================================
-# VALIDAÇÃO
+# VALIDAÇÃO DE PRÉ-REQUISITOS
+# ============================================================================
+echo -e "\n${YELLOW}🔍 Verificando pré-requisitos...${NC}"
+
+# Verifica se o ACR existe
+if ! az acr show --name $ACR_NAME --query "id" -o tsv &>/dev/null; then
+    echo -e "${RED}❌ ERRO: ACR '$ACR_NAME' não encontrado!${NC}"
+    echo -e "${YELLOW}Execute primeiro:${NC}"
+    echo -e "  1. Crie o ACR: az acr create --name <nome> --resource-group <rg> --sku Basic"
+    echo -e "  2. Construa a imagem: az acr build --registry <nome> --image $CONTAINER_IMAGE_NAME --file ../container-app/Dockerfile ../container-app"
+    exit 1
+fi
+
+# Verifica se a imagem existe no ACR
+if ! az acr repository show --name $ACR_NAME --repository "${CONTAINER_IMAGE_NAME%:*}" &>/dev/null; then
+    echo -e "${RED}❌ ERRO: Imagem '$CONTAINER_IMAGE_NAME' não encontrada no ACR!${NC}"
+    echo -e "${YELLOW}Execute:${NC}"
+    echo -e "  az acr build --registry $ACR_NAME --image $CONTAINER_IMAGE_NAME --file ../container-app/Dockerfile ../container-app"
+    exit 1
+fi
+
+echo -e "${GREEN}✅ ACR e imagem encontrados!${NC}"
+
+# ============================================================================
+# CONFIRMAÇÃO
 # ============================================================================
 echo -e "\n${YELLOW}📋 Parâmetros do Deploy:${NC}"
 echo "  Resource Group: $RESOURCE_GROUP"
 echo "  Location: $LOCATION"
 echo "  Container App: $CONTAINER_APP_NAME"
-echo "  ACR: $ACR_NAME"
-echo "  Container Image: $CONTAINER_IMAGE_NAME"
-echo "  OpenAI Endpoint: $AZURE_OPENAI_ENDPOINT"
-echo "  OpenAI Deployment: $AZURE_OPENAI_DEPLOYMENT"
+echo "  ACR Existente: $ACR_NAME"
+echo "  Imagem: $CONTAINER_IMAGE_NAME"
 
-read -p "$(echo -e ${YELLOW}Continuar? [y/N]: ${NC})" -n 1 -r
+read -p "$(echo -e ${YELLOW}Continuar com o deploy? [y/N]: ${NC})" -n 1 -r
 echo
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     echo "Deploy cancelado."
@@ -46,39 +73,18 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
 fi
 
 # ============================================================================
-# STEP 1: Criar Resource Group
+# STEP 1: Criar Resource Group (se não existir)
 # ============================================================================
-echo -e "\n${BLUE}📦 Criando Resource Group...${NC}"
+echo -e "\n${BLUE}📦 Criando/verificando Resource Group...${NC}"
 az group create \
   --name $RESOURCE_GROUP \
-  --location $LOCATION
+  --location $LOCATION \
+  --output none
 
 # ============================================================================
-# STEP 2: Build da Imagem no ACR
+# STEP 2: Deploy do Container App
 # ============================================================================
-echo -e "\n${BLUE}🔨 Fazendo build da imagem no ACR...${NC}"
-echo "Isso pode levar alguns minutos..."
-
-# Primeiro cria o ACR
-az acr create \
-  --resource-group $RESOURCE_GROUP \
-  --name $ACR_NAME \
-  --sku Basic \
-  --admin-enabled false
-
-# Depois faz o build
-az acr build \
-  --registry $ACR_NAME \
-  --image $CONTAINER_IMAGE_NAME \
-  --file ../container-app/Dockerfile \
-  ../container-app
-
-echo -e "${GREEN}✅ Imagem construída com sucesso!${NC}"
-
-# ============================================================================
-# STEP 3: Deploy do Template Bicep
-# ============================================================================
-echo -e "\n${BLUE}🚀 Fazendo deploy da infraestrutura...${NC}"
+echo -e "\n${BLUE}🚀 Fazendo deploy do Container App...${NC}"
 
 az deployment group create \
   --resource-group $RESOURCE_GROUP \
@@ -86,9 +92,7 @@ az deployment group create \
   --parameters \
     containerAppName=$CONTAINER_APP_NAME \
     acrName=$ACR_NAME \
-    containerImageName=$CONTAINER_IMAGE_NAME \
-    azureOpenAIEndpoint=$AZURE_OPENAI_ENDPOINT \
-    azureOpenAIDeployment=$AZURE_OPENAI_DEPLOYMENT
+    containerImageName=$CONTAINER_IMAGE_NAME
 
 # ============================================================================
 # OUTPUTS

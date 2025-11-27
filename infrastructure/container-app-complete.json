@@ -5,40 +5,27 @@
     "_generator": {
       "name": "bicep",
       "version": "0.38.33.27573",
-      "templateHash": "18214238170464516338"
+      "templateHash": "13826363292357488244"
     }
   },
   "parameters": {
     "containerAppName": {
       "type": "string",
       "metadata": {
-        "description": "Nome do Container App"
+        "description": "Nome do Container App a ser criado"
       }
     },
     "acrName": {
       "type": "string",
       "metadata": {
-        "description": "Nome do Azure Container Registry (ACR)"
-      }
-    },
-    "azureOpenAIEndpoint": {
-      "type": "string",
-      "metadata": {
-        "description": "Endpoint do modelo Azure OpenAI (ex: https://xxx.openai.azure.com/)"
-      }
-    },
-    "azureOpenAIDeployment": {
-      "type": "string",
-      "defaultValue": "gpt-4o",
-      "metadata": {
-        "description": "Nome do deployment do Azure OpenAI (ex: gpt-4o)"
+        "description": "Nome do ACR existente (onde a imagem já está)"
       }
     },
     "containerImageName": {
       "type": "string",
       "defaultValue": "ai-container-app:latest",
       "metadata": {
-        "description": "Nome da imagem do container (ex: ai-container-app:latest)"
+        "description": "Nome completo da imagem (ex: ai-container-app:latest)"
       }
     }
   },
@@ -47,18 +34,6 @@
     "containerAppEnvName": "[format('env-{0}', parameters('containerAppName'))]"
   },
   "resources": [
-    {
-      "type": "Microsoft.ContainerRegistry/registries",
-      "apiVersion": "2023-01-01-preview",
-      "name": "[parameters('acrName')]",
-      "location": "[resourceGroup().location]",
-      "sku": {
-        "name": "Basic"
-      },
-      "properties": {
-        "adminUserEnabled": false
-      }
-    },
     {
       "type": "Microsoft.OperationalInsights/workspaces",
       "apiVersion": "2022-10-01",
@@ -120,17 +95,7 @@
               "resources": {
                 "cpu": "[json('0.5')]",
                 "memory": "1Gi"
-              },
-              "env": [
-                {
-                  "name": "AZURE_OPENAI_ENDPOINT",
-                  "value": "[parameters('azureOpenAIEndpoint')]"
-                },
-                {
-                  "name": "AZURE_OPENAI_DEPLOYMENT",
-                  "value": "[parameters('azureOpenAIDeployment')]"
-                }
-              ]
+              }
             }
           ],
           "scale": {
@@ -140,7 +105,6 @@
         }
       },
       "dependsOn": [
-        "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]",
         "[resourceId('Microsoft.App/managedEnvironments', variables('containerAppEnvName'))]"
       ]
     },
@@ -155,7 +119,6 @@
         "principalType": "ServicePrincipal"
       },
       "dependsOn": [
-        "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]",
         "[resourceId('Microsoft.App/containerApps', parameters('containerAppName'))]"
       ]
     }
@@ -165,17 +128,9 @@
       "type": "string",
       "value": "[format('https://{0}', reference(resourceId('Microsoft.App/containerApps', parameters('containerAppName')), '2023-05-01').configuration.ingress.fqdn)]"
     },
-    "acrLoginServer": {
+    "containerAppFqdn": {
       "type": "string",
-      "value": "[reference(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), '2023-01-01-preview').loginServer]"
-    },
-    "imageName": {
-      "type": "string",
-      "value": "[format('{0}/ai-container-app:latest', reference(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), '2023-01-01-preview').loginServer)]"
-    },
-    "buildCommand": {
-      "type": "string",
-      "value": "[format('az acr build --registry {0} --image ai-container-app:latest --file ./container-app/Dockerfile ./container-app', parameters('acrName'))]"
+      "value": "[reference(resourceId('Microsoft.App/containerApps', parameters('containerAppName')), '2023-05-01').configuration.ingress.fqdn]"
     }
   }
 }
