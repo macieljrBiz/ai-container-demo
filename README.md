@@ -114,34 +114,73 @@ ai-container-demo/
 
 ## 📦 Deployment Options
 
-### 🚀 Opção 1: One-Click Deploy (RECOMENDADO)
+### 🚀 Opção 1: Deploy Simplificado (RECOMENDADO)
 
-**Deploy completo via Portal Azure - código puxado do GitHub!**
+**Deploy em 2 passos - sem Deployment Scripts, sem Storage Account!**
 
-#### Container Apps (Build + Deploy)
+#### Container Apps
+
+**Passo 1: Build da imagem**
+```bash
+cd infrastructure
+
+# Criar ACR (apenas uma vez)
+az acr create \
+  --resource-group rg-ai-demo \
+  --name myacr123 \
+  --sku Basic
+
+# Build da imagem
+az acr build \
+  --registry myacr123 \
+  --image ai-container-app:latest \
+  --file ../container-app/Dockerfile \
+  ../container-app
+```
+
+**Passo 2: Deploy da infraestrutura**
+
 [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FmacieljrBiz%2Fai-container-demo%2Frefs%2Fheads%2Fmain%2Finfrastructure%2Fcontainer-app-complete.json)
 
-- ✅ Faz git clone do repositório
-- ✅ Build da imagem no ACR
-- ✅ Deploy do Container App
+**OU via CLI:**
+```bash
+az deployment group create \
+  --resource-group rg-ai-demo \
+  --template-file infrastructure/container-app-complete.bicep \
+  --parameters \
+    containerAppName=ai-app \
+    acrName=myacr123 \
+    azureOpenAIEndpoint=https://YOUR_ENDPOINT.openai.azure.com/ \
+    azureOpenAIDeployment=gpt-4o
+```
+
+**OU via Script Automatizado:**
+```bash
+# Linux/Mac
+cd infrastructure
+./deploy.sh
+
+# Windows
+cd infrastructure
+.\deploy.ps1
+```
+
+- ✅ Sem Deployment Scripts
+- ✅ Sem Storage Account
+- ✅ Sem Azure Policy conflicts
 - ✅ Managed Identity configurada
-- ⏱️ ~15-20 minutos
+- ⏱️ ~5-10 minutos
+
+---
 
 #### Azure Functions (Build + Deploy)
 [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FmacieljrBiz%2Fai-container-demo%2Frefs%2Fheads%2Fmain%2Finfrastructure%2Ffunctions-complete.json)
 
-- ✅ Faz git clone do repositório
-- ✅ Build da imagem no ACR
-- ✅ Deploy do Azure Functions
-- ✅ Application Insights configurado
-- ⏱️ ~15-20 minutos
-
 **OU via CLI:**
 ```bash
-# Container Apps
 az deployment group create \
   --resource-group rg-ai-demo \
-  --template-file infrastructure/container-app-complete.bicep \
+  --template-file infrastructure/functions-complete.bicep \
   --parameters \
     acrName=seuacr123 \
     azureOpenAIEndpoint="https://seu-openai.openai.azure.com/"

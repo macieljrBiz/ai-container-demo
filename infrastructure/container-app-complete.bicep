@@ -1,5 +1,11 @@
 // ============================================================================
-// CONTAINER APP com build automático via ACR Task (Azure only - sem GitHub Actions)
+// CONTAINER APP - Template simplificado (PRÉ-BUILD necessário)
+// ============================================================================
+// IMPORTANTE: Execute ANTES de fazer o deploy:
+//   az acr build --registry <ACR_NAME> \
+//                --image ai-container-app:latest \
+//                --file ./container-app/Dockerfile \
+//                ./container-app
 // ============================================================================
 
 targetScope = 'resourceGroup'
@@ -19,12 +25,6 @@ param azureOpenAIEndpoint string
 @description('Nome do deployment do Azure OpenAI (ex: gpt-4o)')
 param azureOpenAIDeployment string = 'gpt-4o'
 
-@description('Repositório Git contendo o Dockerfile')
-param gitRepoUrl string = 'https://github.com/macieljrBiz/ai-container-demo.git'
-
-@description('Branch do repositório Git')
-param gitBranch string = 'main'
-
 // ============================================================================
 // 1. ACR – Registro de container
 // ============================================================================
@@ -38,77 +38,7 @@ resource acr 'Microsoft.ContainerRegistry/registries@2023-01-01-preview' = {
 }
 
 // ============================================================================
-// 2. MANAGED IDENTITY para Deployment Script
-// ============================================================================
-resource scriptIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
-  name: 'id-acr-build-script'
-  location: resourceGroup().location
-}
-
-// Permissão para executar ACR Tasks
-resource acrContributorRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(acr.id, scriptIdentity.id, 'AcrContributor')
-  scope: acr
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c') // Contributor
-    principalId: scriptIdentity.properties.principalId
-    principalType: 'ServicePrincipal'
-  }
-}
-
-// ============================================================================
-// 3. DEPLOYMENT SCRIPT – Build da imagem usando az acr build (mais simples!)
-// ============================================================================
-resource buildImage 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
-  name: 'buildImage'
-  location: resourceGroup().location
-  kind: 'AzureCLI'
-  identity: {
-    type: 'UserAssigned'
-    userAssignedIdentities: {
-      '${scriptIdentity.id}': {}
-    }
-  }
-  properties: {
-    azCliVersion: '2.62.0'
-    retentionInterval: 'PT1H'
-    timeout: 'PT30M'
-    environmentVariables: [
-      {
-        name: 'ACR_NAME'
-        value: acrName
-      }
-      {
-        name: 'GIT_REPO_URL'
-        value: gitRepoUrl
-      }
-      {
-        name: 'GIT_BRANCH'
-        value: gitBranch
-      }
-    ]
-    scriptContent: '''
-      echo "### Clonando repositório..."
-      git clone -b $GIT_BRANCH $GIT_REPO_URL repo
-      cd repo
-      
-      echo "### Fazendo build no ACR..."
-      az acr build \
-        --registry $ACR_NAME \
-        --image ai-container-app:latest \
-        --file ./container-app/Dockerfile \
-        ./container-app
-      
-      echo "### Build concluído!"
-    '''
-  }
-  dependsOn: [
-    acrContributorRole
-  ]
-}
-
-// ============================================================================
-// 5. LOG ANALYTICS + ENVIRONMENT
+// 2. LOG ANALYTICS + ENVIRONMENT
 // ============================================================================
 var logAnalyticsName = 'log-${containerAppName}'
 var containerAppEnvName = 'env-${containerAppName}'
@@ -137,7 +67,7 @@ resource containerAppEnv 'Microsoft.App/managedEnvironments@2023-05-01' = {
 }
 
 // ============================================================================
-// 6. CONTAINER APP – usa imagem construída pelo ACR Task
+// 3. CONTAINER APP – Assume que imagem já existe no ACR
 // ============================================================================
 resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
   name: containerAppName
@@ -185,7 +115,19 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
       }
     }
   }
-  dependsOn: [ buildImage ]  // Só cria app depois da imagem construída!
+}
+
+// ============================================================================
+// ROLE ASSIGNMENT - Permitir Container App puxar imagens do ACR
+// ============================================================================
+resource acrPullRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(acr.id, containerApp.id, 'AcrPull')
+  scope: acr
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d') // AcrPull
+    principalId: containerApp.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
 }
 
 // ============================================================================
@@ -194,12 +136,4 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
 output containerAppUrl string = 'https://${containerApp.properties.configuration.ingress.fqdn}'
 output acrLoginServer string = acr.properties.loginServer
 output imageName string = '${acr.properties.loginServer}/ai-container-app:latest'
-output nextSteps string = '''
-🚀 Deploy concluído!
-
-Você pode verificar a imagem no ACR com:
-az acr repository list --name ${acrName}
-
-Ou listar os logs:
-az containerapp logs show --name ${containerAppName} --resource-group ${resourceGroup().name} --follow
-'''
+output buildCommand string = 'az acr build --registry ${acrName} --image ai-container-app:latest --file ./container-app/Dockerfile ./container-app'

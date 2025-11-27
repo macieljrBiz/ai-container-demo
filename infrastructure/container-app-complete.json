@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.38.33.27573",
-      "templateHash": "16669300592846550929"
+      "templateHash": "12515919689820000352"
     }
   },
   "parameters": {
@@ -33,20 +33,6 @@
       "metadata": {
         "description": "Nome do deployment do Azure OpenAI (ex: gpt-4o)"
       }
-    },
-    "gitRepoUrl": {
-      "type": "string",
-      "defaultValue": "https://github.com/macieljrBiz/ai-container-demo.git",
-      "metadata": {
-        "description": "Repositório Git contendo o Dockerfile"
-      }
-    },
-    "gitBranch": {
-      "type": "string",
-      "defaultValue": "main",
-      "metadata": {
-        "description": "Branch do repositório Git"
-      }
     }
   },
   "variables": {
@@ -65,64 +51,6 @@
       "properties": {
         "adminUserEnabled": false
       }
-    },
-    {
-      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
-      "apiVersion": "2023-01-31",
-      "name": "id-acr-build-script",
-      "location": "[resourceGroup().location]"
-    },
-    {
-      "type": "Microsoft.Authorization/roleAssignments",
-      "apiVersion": "2022-04-01",
-      "scope": "[format('Microsoft.ContainerRegistry/registries/{0}', parameters('acrName'))]",
-      "name": "[guid(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'id-acr-build-script'), 'AcrContributor')]",
-      "properties": {
-        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
-        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'id-acr-build-script'), '2023-01-31').principalId]",
-        "principalType": "ServicePrincipal"
-      },
-      "dependsOn": [
-        "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]",
-        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'id-acr-build-script')]"
-      ]
-    },
-    {
-      "type": "Microsoft.Resources/deploymentScripts",
-      "apiVersion": "2023-08-01",
-      "name": "buildImage",
-      "location": "[resourceGroup().location]",
-      "kind": "AzureCLI",
-      "identity": {
-        "type": "UserAssigned",
-        "userAssignedIdentities": {
-          "[format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'id-acr-build-script'))]": {}
-        }
-      },
-      "properties": {
-        "azCliVersion": "2.62.0",
-        "retentionInterval": "PT1H",
-        "timeout": "PT30M",
-        "environmentVariables": [
-          {
-            "name": "ACR_NAME",
-            "value": "[parameters('acrName')]"
-          },
-          {
-            "name": "GIT_REPO_URL",
-            "value": "[parameters('gitRepoUrl')]"
-          },
-          {
-            "name": "GIT_BRANCH",
-            "value": "[parameters('gitBranch')]"
-          }
-        ],
-        "scriptContent": "      echo \"### Clonando repositório...\"\r\n      git clone -b $GIT_BRANCH $GIT_REPO_URL repo\r\n      cd repo\r\n      \r\n      echo \"### Fazendo build no ACR...\"\r\n      az acr build \\\r\n        --registry $ACR_NAME \\\r\n        --image ai-container-app:latest \\\r\n        --file ./container-app/Dockerfile \\\r\n        ./container-app\r\n      \r\n      echo \"### Build concluído!\"\r\n    "
-      },
-      "dependsOn": [
-        "[extensionResourceId(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), 'Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'id-acr-build-script'), 'AcrContributor'))]",
-        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'id-acr-build-script')]"
-      ]
     },
     {
       "type": "Microsoft.OperationalInsights/workspaces",
@@ -206,8 +134,22 @@
       },
       "dependsOn": [
         "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]",
-        "[resourceId('Microsoft.Resources/deploymentScripts', 'buildImage')]",
         "[resourceId('Microsoft.App/managedEnvironments', variables('containerAppEnvName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[format('Microsoft.ContainerRegistry/registries/{0}', parameters('acrName'))]",
+      "name": "[guid(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), resourceId('Microsoft.App/containerApps', parameters('containerAppName')), 'AcrPull')]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')]",
+        "principalId": "[reference(resourceId('Microsoft.App/containerApps', parameters('containerAppName')), '2023-05-01', 'full').identity.principalId]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]",
+        "[resourceId('Microsoft.App/containerApps', parameters('containerAppName'))]"
       ]
     }
   ],
@@ -224,9 +166,9 @@
       "type": "string",
       "value": "[format('{0}/ai-container-app:latest', reference(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), '2023-01-01-preview').loginServer)]"
     },
-    "nextSteps": {
+    "buildCommand": {
       "type": "string",
-      "value": "🚀 Deploy concluído!\r\n\r\nVocê pode verificar a imagem no ACR com:\r\naz acr repository list --name ${acrName}\r\n\r\nOu listar os logs:\r\naz containerapp logs show --name ${containerAppName} --resource-group ${resourceGroup().name} --follow\r\n"
+      "value": "[format('az acr build --registry {0} --image ai-container-app:latest --file ./container-app/Dockerfile ./container-app', parameters('acrName'))]"
     }
   }
 }
