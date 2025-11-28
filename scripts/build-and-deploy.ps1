@@ -1,4 +1,4 @@
-# ============================================================================
+﻿# ============================================================================
 # Build and Deploy - Azure Container Demo
 # ============================================================================
 # Este script faz o build das imagens no ACR e deploy completo da infraestrutura
@@ -6,20 +6,20 @@
 # ============================================================================
 
 param(
-    [Parameter(Mandatory=$false)]
-    [string]$ResourceGroup = "rg-ai-container-demo",
+    [Parameter(Mandatory=$true)]
+    [string]$ResourceGroup,
     
-    [Parameter(Mandatory=$false)]
-    [string]$Location = "eastus",
+    [Parameter(Mandatory=$true)]
+    [string]$Location,
     
-    [Parameter(Mandatory=$false)]
-    [string]$ACRName = "acraicondemo",
+    [Parameter(Mandatory=$true)]
+    [string]$ACRName,
     
-    [Parameter(Mandatory=$false)]
-    [string]$ContainerAppName = "ai-container-app",
+    [Parameter(Mandatory=$true)]
+    [string]$ContainerAppName,
     
-    [Parameter(Mandatory=$false)]
-    [string]$FunctionAppName = "funcappaidessa",
+    [Parameter(Mandatory=$true)]
+    [string]$FunctionAppName,
     
     [Parameter(Mandatory=$false)]
     [string]$AzureOpenAIEndpoint = "",
@@ -307,4 +307,3 @@ Write-Host "Próximos passos:" -ForegroundColor Cyan
 Write-Host "1. Acesse a URL do Container App para testar" -ForegroundColor White
 Write-Host "2. Verifique os logs no Azure Portal" -ForegroundColor White
 Write-Host "3. Configure alertas e monitoramento conforme necessário" -ForegroundColor White
-Write-Host ""

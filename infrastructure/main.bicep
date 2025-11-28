@@ -4,6 +4,10 @@ param location string = resourceGroup().location
 param acrName string
 param containerAppName string
 param azureOpenAIName string
+param aiHubName string = 'ai-hub-demo'
+param aiProjectName string = 'ai-project-demo'
+param openAIModelName string = 'gpt-4o-mini'
+param openAIDeploymentName string = 'gpt-4o-mini'
 
 resource logWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
   name: 'log-ai-container'
@@ -80,7 +84,7 @@ resource azureOpenAI 'Microsoft.CognitiveServices/accounts@2024-10-01' = {
 
 resource deployModel 'Microsoft.CognitiveServices/accounts/deployments@2024-10-01' = {
   parent: azureOpenAI
-  name: 'gpt-4o-mini'
+  name: openAIDeploymentName
   sku: {
     name: 'Standard'
     capacity: 10
@@ -88,14 +92,14 @@ resource deployModel 'Microsoft.CognitiveServices/accounts/deployments@2024-10-0
   properties: {
     model: {
       format: 'OpenAI'
-      name: 'gpt-4o-mini'
+      name: openAIModelName
       version: '2024-07-18'
     }
   }
 }
 
 resource aiHub 'Microsoft.MachineLearningServices/workspaces@2024-10-01' = {
-  name: 'ai-hub-demo'
+  name: aiHubName
   location: location
   kind: 'Hub'
   identity: { type: 'SystemAssigned' }
@@ -111,7 +115,7 @@ resource aiHub 'Microsoft.MachineLearningServices/workspaces@2024-10-01' = {
 }
 
 resource aiProject 'Microsoft.MachineLearningServices/workspaces@2024-10-01' = {
-  name: 'ai-project-demo'
+  name: aiProjectName
   location: location
   kind: 'Project'
   identity: { type: 'SystemAssigned' }
