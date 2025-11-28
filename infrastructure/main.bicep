@@ -218,4 +218,3 @@ output acrLoginServer string = acr.properties.loginServer
 output azureOpenAIEndpoint string = azureOpenAI.properties.endpoint
 output azureOpenAIDeployment string = deployModel.name
 output aiFoundryPortalUrl string = 'https://ai.azure.com/resource/${aiProject.id}'
-output foundryDeploymentEndpoint string = foundryDeployment.properties.scoringUri
