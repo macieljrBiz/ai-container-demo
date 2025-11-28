@@ -139,39 +139,7 @@ resource openAIConnection 'Microsoft.MachineLearningServices/workspaces/connecti
   }
 }
 
-resource foundryDeployment 'Microsoft.MachineLearningServices/workspaces/onlineEndpoints@2024-10-01' = {
-  parent: aiProject
-  name: 'gpt4omini-${uniqueString(resourceGroup().id)}'
-  location: location
-  kind: 'Managed'
-  identity: { type: 'SystemAssigned' }
-  properties: {
-    authMode: 'AADToken'
-    description: 'GPT-4o-mini deployment via AI Foundry'
-    traffic: {
-      'gpt-4o-mini-deployment': 100
-    }
-  }
-}
-
-resource foundryModelDeployment 'Microsoft.MachineLearningServices/workspaces/onlineEndpoints/deployments@2024-10-01' = {
-  parent: foundryDeployment
-  name: 'gpt-4o-mini-deployment'
-  location: location
-  sku: {
-    name: 'Standard'
-    capacity: 1
-  }
-  properties: {
-    endpointComputeType: 'Managed'
-    model: deployModel.id
-    environmentId: 'azureml://registries/azureml/environments/minimal-ubuntu20.04-py38-cpu-inference/versions/1'
-    instanceType: 'Standard_DS2_v2'
-    scaleSettings: {
-      scaleType: 'Default'
-    }
-  }
-}
+// Foundry Online Endpoint removed - Container App accesses Azure OpenAI directly
 
 resource containerAppIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' existing = {
   name: 'id-${containerAppName}'
