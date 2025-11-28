@@ -37,14 +37,14 @@ jobs:
       - name: 🚀 Deploy Bicep Template
         id: deploy
         run: |
-          az deployment group create \
+          outputs=$(az deployment group create \
             --resource-group ${{ secrets.RESOURCE_GROUP }} \
             --template-file infrastructure/main.bicep \
             --parameters \
               acrName='${{ secrets.ACR_NAME }}' \
               containerAppName='${{ secrets.CONTAINER_APP_NAME }}' \
               azureOpenAIName='${{ secrets.OPENAI_NAME }}' \
-            --query "properties.outputs" -o json | Tee-Object -Variable outputs
+            --query "properties.outputs" -o json)
           
           echo "outputs=$outputs" >> $GITHUB_OUTPUT
 

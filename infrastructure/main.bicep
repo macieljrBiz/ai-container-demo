@@ -163,6 +163,9 @@ resource foundryModelDeployment 'Microsoft.MachineLearningServices/workspaces/on
     capacity: 1
   }
   properties: {
+    endpointComputeType: 'Managed'
+  }
+  properties: {
     model: deployModel.id
     environmentId: 'azureml://registries/azureml/environments/minimal-ubuntu20.04-py38-cpu-inference/versions/1'
     instanceType: 'Standard_DS2_v2'
