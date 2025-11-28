@@ -57,6 +57,7 @@ jobs:
         run: |
           echo "✅ Infrastructure deployed successfully!"
           echo ""
-          echo "📋 Next steps:"
-          echo "1. Wait 2-3 minutes for role propagation"
-          echo "2. Run workflow '2️⃣ Build and Deploy Container App'"
+          echo "🔗 Next workflow will start automatically in 1 minute..."
+          echo "   Workflow: '2️⃣ Build and Deploy Container App'"
+          echo ""
+          echo "📊 Deployment outputs saved for next workflow"
