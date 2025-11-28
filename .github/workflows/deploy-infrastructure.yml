@@ -2,28 +2,11 @@ name: 1️⃣ Deploy Infrastructure
 
 on:
   workflow_dispatch:
-    inputs:
-      resourceGroupName:
-        description: 'Nome do Resource Group'
-        required: true
-        default: 'rg-ai-container-demo'
-      containerAppName:
-        description: 'Nome do Container App'
-        required: true
-        default: 'ai-container-app'
-      acrName:
-        description: 'Nome do Azure Container Registry'
-        required: true
-      azureOpenAIEndpoint:
-        description: 'Endpoint do Azure OpenAI (ex: https://seu-modelo.openai.azure.com/)'
-        required: true
-      azureOpenAIDeployment:
-        description: 'Nome do deployment do Azure OpenAI'
-        required: true
-        default: 'gpt-4o'
-      openAiResourceId:
-        description: 'Resource ID completo do Azure OpenAI'
-        required: true
+  push:
+    branches:
+      - main
+    paths:
+      - 'infrastructure/**'
 
 permissions:
   id-token: write   # Required for OIDC authentication
@@ -48,28 +31,32 @@ jobs:
       - name: 📦 Create Resource Group
         run: |
           az group create \
-            --name ${{ github.event.inputs.resourceGroupName }} \
-            --location brazilsouth
+            --name ${{ secrets.RESOURCE_GROUP }} \
+            --location eastus
 
       - name: 🚀 Deploy Bicep Template
+        id: deploy
         run: |
           az deployment group create \
-            --resource-group ${{ github.event.inputs.resourceGroupName }} \
-            --template-file infrastructure/container-app-complete.bicep \
+            --resource-group ${{ secrets.RESOURCE_GROUP }} \
+            --template-file infrastructure/main.bicep \
             --parameters \
-              containerAppName='${{ github.event.inputs.containerAppName }}' \
-              acrName='${{ github.event.inputs.acrName }}' \
-              azureOpenAIEndpoint='${{ github.event.inputs.azureOpenAIEndpoint }}' \
-              azureOpenAIDeployment='${{ github.event.inputs.azureOpenAIDeployment }}' \
-              openAiResourceId='${{ github.event.inputs.openAiResourceId }}'
+              acrName='${{ secrets.ACR_NAME }}' \
+              containerAppName='${{ secrets.CONTAINER_APP_NAME }}' \
+              azureOpenAIName='${{ secrets.OPENAI_NAME }}' \
+            --query "properties.outputs" -o json | Tee-Object -Variable outputs
+          
+          echo "outputs=$outputs" >> $GITHUB_OUTPUT
+
+      - name: 📊 Display Deployment Outputs
+        run: |
+          echo "=== Deployment Outputs ==="
+          echo "${{ steps.deploy.outputs.outputs }}" | jq .
 
       - name: ✅ Deployment Complete
         run: |
-          echo "✅ Infraestrutura deployada com sucesso!"
+          echo "✅ Infrastructure deployed successfully!"
           echo ""
-          echo "📋 Próximos passos:"
-          echo "1. Aguardar 2-3 minutos para propagação de permissões"
-          echo "2. Executar workflow '2️⃣ Activate Container App'"
-          echo ""
-          echo "ℹ️ Container App criado com minReplicas=0 (inativo)"
-          echo "   Será ativado pelo próximo workflow após propagação de roles"
+          echo "📋 Next steps:"
+          echo "1. Wait 2-3 minutes for role propagation"
+          echo "2. Run workflow '2️⃣ Build and Deploy Container App'"
