@@ -1,6 +1,6 @@
-# AI Container Demo
+# 🤖 AI Container Demo - Azure OpenAI com Container Apps
 
-**Authors:**  
+**Autores:**  
 Andressa Siqueira - [ansiqueira@microsoft.com](mailto:ansiqueira@microsoft.com)  
 Vicente Maciel Jr - [vicentem@microsoft.com](mailto:vicentem@microsoft.com)
 
@@ -8,452 +8,420 @@ Vicente Maciel Jr - [vicentem@microsoft.com](mailto:vicentem@microsoft.com)
 
 ## 📝 Sobre o Projeto
 
-Demonstração de integração com **Azure OpenAI** usando **autenticação por Managed Identity** e **deploy profissional via CI/CD**, seguindo as melhores práticas do **Microsoft Well-Architected Framework**.
+Demonstração prática de como integrar **Azure OpenAI** com **Azure Container Apps** usando **autenticação por Managed Identity** e **CI/CD profissional via GitHub Actions**.
 
-Este projeto ilustra como:
-- 🤖 Integrar Azure OpenAI de forma segura (sem chaves de API hardcoded)
-- 🔐 Usar Managed Identity para autenticação
-- 🚀 Implementar CI/CD profissional com GitHub Actions e OIDC
-- 📦 Deployar containerizados em Azure Container Apps
-- ⚡ Lidar com propagação de permissões do Azure RBAC
+Este projeto ilustra:
 
-**Deployment:**
-- **Azure Container Apps** - Serverless container platform with scale-to-zero
-- **GitHub Actions** - Automated CI/CD with OIDC authentication
+- 🔐 **Autenticação segura** sem chaves de API hardcoded (Managed Identity)
+- 🤖 **Integração com Azure OpenAI** usando SDK oficial
+- 🚀 **Deploy automatizado** com GitHub Actions e OIDC
+- 📦 **Containerização** com Docker e Azure Container Registry
+- 🏗️ **Infrastructure as Code** com Bicep
+- ⚡ **Aplicação web moderna** com FastAPI e interface HTML
 
 ---
 
-## 📁 Repository Structure
+## 🎯 Propósito da Demo
+
+Esta demo serve como referência para implementar aplicações modernas de IA no Azure seguindo as melhores práticas de:
+
+- ✅ Segurança (Managed Identity, OIDC, sem secrets hardcoded)
+- ✅ DevOps (CI/CD automatizado, IaC)
+- ✅ Arquitetura Cloud-Native (containers, serverless)
+- ✅ Escalabilidade (scale-to-zero, auto-scaling)
+
+---
+
+## 🏗️ Arquitetura
 
 ```
-ai-container-demo/
-├── .github/
-│   ├── workflows/
-│   │   ├── setup-oidc.yml               # 0️⃣ Setup OIDC (automated)
-│   │   ├── cleanup-service-principal.yml # 3️⃣ Cleanup Service Principal
-│   │   ├── deploy-infrastructure.yml    # 1️⃣ Deploy Bicep template
-│   │   └── activate-container-app.yml   # 2️⃣ Activate after role propagation
-│   └── README.md                        # Complete setup guide
-│
-├── container-app/           # FastAPI application for Azure Container Apps
-│   ├── main.py             # FastAPI application code
-│   ├── Dockerfile          # Container image definition
-│   ├── requirements.txt    # Python dependencies
-│   └── static/             # Web UI files
-│
-├── azure-functions/        # Azure Functions application
-│   ├── function_app.py     # Functions v4 Python code
-│   ├── host.json           # Functions runtime configuration
-│   ├── Dockerfile          # Container image definition
-│   ├── requirements.txt    # Python dependencies
-│   └── static/             # Web UI files
-│
-└── infrastructure/         # Infrastructure as Code (Bicep)
-    ├── container-app-complete.bicep  # Container App with roles
-    ├── functions-complete.bicep      # Azure Functions with roles
-    ├── openai-role.bicep            # Cross-RG role assignment module
-    ├── deploy.sh / deploy.ps1       # CLI deployment scripts (alternative)
-    └── *.json                       # Compiled ARM templates for Deploy Buttons
+┌─────────────────────────────────────────────────────────────┐
+│                      GitHub Actions                         │
+│  ┌──────────────────┐      ┌──────────────────────────┐    │
+│  │  1️⃣ Deploy Infra │ ───▶ │  2️⃣ Build & Deploy App  │    │
+│  └──────────────────┘      └──────────────────────────┘    │
+└────────────┬────────────────────────────┬───────────────────┘
+             │ (OIDC Auth)                │ (Push Image)
+             ▼                            ▼
+┌────────────────────────┐   ┌──────────────────────────┐
+│   Azure Resource       │   │   Azure Container        │
+│   Group                │   │   Registry (ACR)         │
+│                        │   └──────────────────────────┘
+│  ┌──────────────────┐ │                │
+│  │ Azure OpenAI     │ │                │ (Pull Image)
+│  │ + GPT-4o-mini    │ │                ▼
+│  └────────┬─────────┘ │   ┌──────────────────────────┐
+│           │           │   │   Container App          │
+│           │ (RBAC)    │   │                          │
+│           │           │   │  ┌────────────────────┐  │
+│           └───────────┼──▶│  │ FastAPI + OpenAI   │  │
+│                       │   │  │ (Managed Identity) │  │
+│  ┌──────────────────┐ │   │  └────────────────────┘  │
+│  │ AI Hub/Project   │ │   └──────────────────────────┘
+│  │ (AI Foundry)     │ │                │
+│  └──────────────────┘ │                │
+│                       │                ▼
+│  ┌──────────────────┐ │      ┌──────────────────┐
+│  │ Key Vault        │ │      │  Public HTTPS    │
+│  │ Storage          │ │      │  Endpoint        │
+│  │ App Insights     │ │      └──────────────────┘
+│  └──────────────────┘ │
+└────────────────────────┘
 ```
 
 ---
 
-## 🎯 Features
+## 📋 Pré-requisitos
 
-- **Azure OpenAI Integration** with token-based authentication
-- **Managed Identity** (System-Assigned) for secure authentication
-- **Interactive Web UI** for chat interface
-- **REST API** endpoints for AI responses
-- **Infrastructure as Code** (Terraform + Bicep)
-- **Containerized** deployment options
+### Para Desenvolvimento Local:
 
----
+- **Python 3.11+** instalado
+- **Docker Desktop** (opcional, para teste com containers)
+- **Git** para clonar o repositório
 
-## 🔄 Container Apps vs Azure Functions
+### Para Deploy no Azure:
 
-| Feature | **Azure Container Apps** | **Azure Functions** |
-|---------|-------------------------|---------------------|
-| **Best For** | Long-running processes, web apps, APIs | Event-driven, short-lived executions |
-| **Scaling** | Scale 0-10+ replicas, HTTP-based | Auto-scale based on triggers |
-| **Pricing Model** | Pay per vCPU/memory per second | Consumption: pay per execution<br>Premium: always-on |
-| **Cold Start** | Minimal (when scaled to 0) | Yes (Consumption plan) |
-| **Framework** | Any (FastAPI, Django, Flask, etc.) | Azure Functions runtime |
-| **Ingress** | HTTP/HTTPS on port 8000 | HTTP triggers on `/api/*` routes |
+- **Azure CLI** instalado e autenticado (`az login`)
+  - [Download Azure CLI](https://docs.microsoft.com/cli/azure/install-azure-cli)
+- **PowerShell 7+** (recomendado para scripts)
+  - [Download PowerShell](https://github.com/PowerShell/PowerShell/releases)
+- **GitHub CLI** instalado e autenticado (`gh auth login`)
+  - [Download GitHub CLI](https://cli.github.com/)
+- **Subscription do Azure** com permissões para criar recursos
+- **Conta no GitHub** com acesso ao repositório
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Como Usar
 
-### Pré-requisitos
+### Opção 1: Teste Local (Desenvolvimento)
 
-**Para desenvolvimento local:**
-- Python 3.11 ou superior
-- Docker (opcional)
-
-**Para deploy no Azure:**
-- Azure CLI instalado e autenticado (`az login`)
-- **Azure AI Foundry** com modelo deployado (exemplo: gpt-4o)
-  - Você precisará do **endpoint** do modelo (ex: `https://seu-modelo.openai.azure.com/`)
-  - Configure **Managed Identity** com permissões no modelo
-
-### Local Development
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/macieljrBiz/ai-container-demo.git
-   cd ai-container-demo
-   ```
-
-2. **Configure o endpoint do Azure AI Foundry**
-   
-   No arquivo `container-app/main.py`, edite a linha 10:
-   ```python
-   endpoint = os.getenv("AZURE_OPENAI_ENDPOINT", "https://SEU-MODELO.openai.azure.com/")
-   ```
-   
-   Substitua `https://SEU-MODELO.openai.azure.com/` pelo endpoint do seu modelo no AI Foundry.
-   
-   **Como obter o endpoint:**
-   - Acesse [Azure AI Foundry](https://ai.azure.com)
-   - Navegue até seu projeto
-   - Vá em **Deployments** > Selecione seu modelo
-   - Copie o **Target URI** (endpoint)
-
-3. **Teste localmente**
-
-   **Opção A: Usando Docker**
-   ```bash
-   cd container-app
-   
-   # Build da imagem
-   docker build -t ai-container-app .
-   
-   # Execute o container (substitua pelo seu endpoint)
-   docker run -p 8000:8000 \
-     -e AZURE_OPENAI_ENDPOINT="https://SEU-MODELO.openai.azure.com/" \
-     ai-container-app
-   ```
-
-   **Opção B: Usando pip (desenvolvimento)**
-   ```bash
-   cd container-app
-   
-   # Instale dependências
-   pip install -r requirements.txt
-   
-   # Configure variáveis de ambiente
-   export AZURE_OPENAI_ENDPOINT="https://SEU-MODELO.openai.azure.com/"
-   
-   # Execute localmente
-   uvicorn main:app --reload --port 8000
-   ```
-
-   Acesse: http://localhost:8000
-
----
-
-## 🚀 Deploy via GitHub Actions
-
-### Setup Inicial (Execute UMA VEZ)
-
-**1. Configure sua infraestrutura Azure e GitHub Secrets**
-
-Execute o script de configuração (requer Azure CLI e GitHub CLI):
-
-```powershell
-# PowerShell
-cd scripts
-.\build-and-deploy.ps1 `
-  -ResourceGroup "rg-ai-container-demo" `
-  -Location "eastus" `
-  -ACRName "acraidemo2025" `
-  -ContainerAppName "ai-container-app" `
-  -AzureOpenAIName "foundry-ai"
-```
-
-Este script irá:
-- ✅ Criar Resource Group
-- ✅ Criar Service Principal com OIDC (Federated Identity)
-- ✅ Atribuir roles necessárias (Contributor + User Access Administrator)
-- ✅ Criar Managed Identity para o Container App
-- ✅ Configurar automaticamente os GitHub Secrets necessários
-
-**Secrets configurados automaticamente:**
-- `AZURE_TENANT_ID` - ID do tenant Azure AD
-- `AZURE_CLIENT_ID` - Client ID do Service Principal
-- `AZURE_SUBSCRIPTION_ID` - ID da subscription
-- `RESOURCE_GROUP` - Nome do resource group
-- `CONTAINER_APP_NAME` - Nome do container app
-- `ACR_NAME` - Nome do Azure Container Registry
-- `OPENAI_NAME` - Nome do Azure OpenAI
-
-**2. Execute os workflows do GitHub Actions**
-
-Após aguardar 2-3 minutos para propagação:
-
-1. **Deploy Infrastructure**: 
-   - GitHub → Actions → "1️⃣ Deploy Infrastructure" → Run workflow
-   - Isso vai criar: ACR, OpenAI, AI Hub/Project, Container App
-
-2. **Build and Deploy App**:
-   - Será executado automaticamente após o deploy da infraestrutura
-   - Ou execute manualmente: "2️⃣ Build and Deploy Container App"
-
-### 🔧 Troubleshooting
-
-Se você encontrar o erro `AADSTS700213` (federated identity not found):
-
-```powershell
-# Execute o script de correção
-cd scripts
-.\fix-oidc.ps1 -ResourceGroup "rg-ai-container-demo"
-```
-
-Aguarde 2-3 minutos e execute novamente o workflow.
-
-Para mais detalhes, consulte: [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
-
----
-
-## 🔘 Deploy Alternativo via Portal Azure
-
-<details>
-<summary>Click to expand</summary>
-
-O script irá:
-- ✅ Validar Azure CLI e autenticação
-- ✅ Pedir informações necessárias (com valores padrão)
-- ✅ Criar Managed Identity
-- ✅ Atribuir roles (Contributor + User Access Administrator)
-- ✅ Criar Federated Credential
-- ✅ Exibir os 3 valores para configurar no GitHub
-
-Depois, configure os 3 secrets no GitHub com os valores exibidos.
-
-</details>
-
-<details>
-<summary><strong>🐧 Opção C: Script Bash (Linux/macOS)</strong> - Recomendado para uso individual</summary>
-
-Execute localmente (requer `az login`):
+#### 1. Clone o repositório
 ```bash
-bash .github/setup-oidc.sh
+git clone https://github.com/AndressaSiqueira/ai-container-demo.git
+cd ai-container-demo
 ```
 
-O script irá:
-- ✅ Validar Azure CLI e autenticação
-- ✅ Pedir informações necessárias (com valores padrão)
-- ✅ Criar Managed Identity
-- ✅ Atribuir roles (Contributor + User Access Administrator)
-- ✅ Criar Federated Credential
-- ✅ Exibir os 3 valores para configurar no GitHub
+#### 2. Configure variáveis de ambiente
 
-Depois, configure os 3 secrets no GitHub com os valores exibidos.
+Crie um arquivo `.env` na pasta `container-app`:
 
-</details>
-</details>
+```bash
+# Local testing (sem Managed Identity)
+AZURE_OPENAI_ENDPOINT=https://seu-endpoint.openai.azure.com/openai/v1/
+AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
+AZURE_OPENAI_API_KEY=sua-chave-temporaria-para-testes
+```
+
+⚠️ **Nota:** Para testes locais, você precisará usar uma API Key temporária. Em produção, use apenas Managed Identity.
+
+#### 3. Instale as dependências
+
+```bash
+cd container-app
+pip install -r requirements.txt
+```
+
+#### 4. Execute a aplicação
+
+```bash
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
+
+#### 5. Acesse no navegador
+
+Abra: http://localhost:8000
+
+Você verá a interface de chat para interagir com o Azure OpenAI.
+
+#### 6. Teste a API (opcional)
+
+```bash
+# Usando curl
+curl -X POST http://localhost:8000/responses \
+  -H "Content-Type: application/json" \
+  -d '{"ask":"O que é Inteligência Artificial?"}'
+
+# Usando PowerShell
+Invoke-RestMethod -Uri "http://localhost:8000/responses" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Body '{"ask":"O que é Inteligência Artificial?"}'
+```
+
+---
+
+### Opção 2: Deploy Completo no Azure (Produção)
+
+Este é o caminho recomendado para produção, usando CI/CD automatizado.
+
+#### **Passo 1: Configure a Infraestrutura Azure e GitHub Secrets**
+
+Execute o script de setup **uma única vez**:
+
+```powershell
+# Abra PowerShell 7+ como Administrador
+cd ai-container-demo/scripts
+
+# Execute o script de configuração
+.\build-and-deploy.ps1 `
+  -ResourceGroup "rg-ai-demo" `
+  -Location "eastus" `
+  -ACRName "acrdemo$(Get-Random -Maximum 9999)" `
+  -ContainerAppName "ai-chat-app" `
+  -AzureOpenAIName "openai-demo"
+```
+
+**O que este script faz:**
+
+✅ Cria o Resource Group no Azure  
+✅ Cria Service Principal com OIDC (autenticação GitHub → Azure)  
+✅ Cria Managed Identity para o Container App  
+✅ Atribui roles necessárias (Contributor, User Access Administrator)  
+✅ Configura automaticamente os **GitHub Secrets** no seu repositório:
+   - `AZURE_TENANT_ID`
+   - `AZURE_CLIENT_ID`
+   - `AZURE_SUBSCRIPTION_ID`
+   - `RESOURCE_GROUP`
+   - `CONTAINER_APP_NAME`
+   - `ACR_NAME`
+   - `OPENAI_NAME`
+
+**Tempo estimado:** 2-3 minutos
+
+---
+
+#### **Passo 2: Execute o Workflow de Deploy da Infraestrutura**
+
+1. Acesse seu repositório no GitHub:
+   ```
+   https://github.com/SEU-USUARIO/ai-container-demo/actions
+   ```
+
+2. Clique no workflow **"1️⃣ Deploy Infrastructure"**
+
+3. Clique em **"Run workflow"**
+   - Branch: `main`
+   - Clique em **"Run workflow"**
+
+**O que este workflow faz:**
+
+✅ Cria Azure Container Registry (ACR)  
+✅ Cria Azure OpenAI com modelo GPT-4o-mini deployado  
+✅ Cria AI Hub e AI Project (Azure AI Foundry)  
+✅ Cria Container App Environment  
+✅ Cria Container App (inicialmente com imagem placeholder)  
+✅ Configura todas as permissões RBAC (Managed Identity)  
+✅ Cria Key Vault, Storage Account, Application Insights  
+
+**Tempo estimado:** 8-12 minutos
+
+---
+
+#### **Passo 3: Execute o Workflow de Build e Deploy da Aplicação**
+
+⏱️ **Aguarde 2-3 minutos** após o Passo 2 para propagação das permissões Azure RBAC.
+
+1. No GitHub Actions, clique no workflow **"2️⃣ Build and Deploy Container App"**
+
+2. Clique em **"Run workflow"**
+   - Branch: `main`
+   - Clique em **"Run workflow"**
+
+**O que este workflow faz:**
+
+✅ Aguarda 1 minuto adicional para propagação de roles  
+✅ Faz build da imagem Docker da aplicação  
+✅ Push da imagem para o ACR  
+✅ Atualiza o Container App com a nova imagem  
+✅ Configura variáveis de ambiente (endpoints, deployment name)  
+✅ Ativa o Container App (scale min replicas para 1)  
+
+**Tempo estimado:** 3-5 minutos
+
+---
+
+#### **Passo 4: Acesse sua Aplicação**
+
+Após a conclusão do workflow, você verá no log:
+
+```
+🚀 Container App URL: https://ai-chat-app.REGION.azurecontainerapps.io
+📊 Test endpoint: https://ai-chat-app.REGION.azurecontainerapps.io/responses
+```
+
+**Acesse a URL** no navegador para usar o chat com Azure OpenAI! 🎉
+
+---
+
+## 📊 Endpoints da API
+
+| Endpoint | Método | Descrição |
+|----------|--------|-----------|
+| `/` | GET | Interface web do chat |
+| `/responses` | POST | Endpoint da API para enviar mensagens |
+| `/docs` | GET | Documentação Swagger da API |
+| `/redoc` | GET | Documentação ReDoc da API |
+
+### Exemplo de uso da API:
+
+```bash
+curl -X POST https://sua-app.azurecontainerapps.io/responses \
+  -H "Content-Type: application/json" \
+  -d '{"ask":"Explique o que é Azure Container Apps"}'
+```
+
+**Resposta:**
+```json
+{
+  "response": "Azure Container Apps é uma plataforma serverless..."
+}
+```
 
 ---
 
 ## 🔧 Troubleshooting
 
-### Problema: Container App não ativa após deploy
+### Erro: AADSTS700213 (Federated identity not found)
 
-**Sintoma:** Container App fica com 0 replicas ou falha ao iniciar
-
-**Causa:** Permissões de ACR ainda não propagaram globalmente (1-5 minutos)
+**Causa:** O OIDC não foi configurado corretamente ou ainda não propagou.
 
 **Solução:**
-```bash
-# Aguarde 2-3 minutos após o deploy inicial e execute:
-az containerapp update \
-  --name <container-app-name> \
-  --resource-group <resource-group> \
-  --min-replicas 1
-```
-
----
-
-### Problema: "401 Unauthorized" ao chamar Azure OpenAI
-
-**Sintoma:** API retorna erro de autenticação
-
-**Causa:** Role "Cognitive Services OpenAI User" ainda não propagou
-
-**Solução:**
-```bash
-# Verifique se o role assignment existe
-PRINCIPAL_ID=$(az containerapp show \
-  --name <container-app-name> \
-  --resource-group <resource-group> \
-  --query identity.principalId -o tsv)
-
-az role assignment list --assignee $PRINCIPAL_ID --all -o table
-
-# Se não aparecer, aguarde mais 1-2 minutos ou force novamente
-```
-
----
-
-### Problema: "Failed to provision revision" ou "Operation expired"
-
-**Sintoma:** Deploy falha com erro de provisionamento
-
-**Causa:** Container App tentou ativar antes das permissões de ACR propagarem
-
-**Solução:** Este problema foi resolvido! O template já cria o Container App com `minReplicas: 0`. Basta seguir o passo de ativação após aguardar 2-3 minutos.
-
----
-
-### Como verificar status do Container App
-
-```bash
-# Ver status geral
-az containerapp show \
-  --name <container-app-name> \
-  --resource-group <resource-group> \
-  --query "{Status:properties.provisioningState, Replicas:properties.template.scale, URL:properties.configuration.ingress.fqdn}" -o table
-
-# Ver logs
-az containerapp logs show \
-  --name <container-app-name> \
-  --resource-group <resource-group> \
-  --follow
-```
-
----
-
-## 📊 API Endpoints
-
-### Container Apps
-- **Web UI**: `https://<app-name>.azurecontainerapps.io/`
-- **Root**: `GET /` → Returns web interface
-- **Chat API**: `POST /responses`
-  ```json
-  {
-    "ask": "What is the capital of Brazil?"
-  }
-  ```
-
-### Azure Functions
-- **Web UI**: `https://<app-name>.azurewebsites.net/api/index`
-- **Chat API**: `POST /api/responses`
-  ```json
-  {
-    "ask": "What is the capital of Brazil?"
-  }
-  ```
-
----
-
-## 🧪 Testing
-
-### Using REST Client (VS Code Extension)
-```http
-### Test Container Apps
-POST https://<app-name>.azurecontainerapps.io/responses
-Content-Type: application/json
-
-{
-  "ask": "What is AI?"
-}
-
-### Test Azure Functions
-POST https://<app-name>.azurewebsites.net/api/responses
-Content-Type: application/json
-
-{
-  "ask": "What is AI?"
-}
-```
-
-### Using curl
-```bash
-# Container Apps
-curl -X POST https://<app-name>.azurecontainerapps.io/responses \
-  -H "Content-Type: application/json" \
-  -d '{"ask":"What is AI?"}'
-
-# Azure Functions
-curl -X POST https://<app-name>.azurewebsites.net/api/responses \
-  -H "Content-Type: application/json" \
-  -d '{"ask":"What is AI?"}'
-```
-
-### Using PowerShell
 ```powershell
-# Container Apps
-Invoke-RestMethod -Uri "https://<app-name>.azurecontainerapps.io/responses" `
-  -Method POST -ContentType "application/json" `
-  -Body '{"ask":"What is AI?"}'
+cd scripts
+.\fix-oidc.ps1 -ResourceGroup "rg-ai-demo"
+```
 
-# Azure Functions
-Invoke-RestMethod -Uri "https://<app-name>.azurewebsites.net/api/responses" `
-  -Method POST -ContentType "application/json" `
-  -Body '{"ask":"What is AI?"}'
+Aguarde 2-3 minutos e execute o workflow novamente.
+
+---
+
+### Erro: CustomDomainInUse (Azure OpenAI)
+
+**Causa:** Nome do Azure OpenAI já existe ou está em soft-delete.
+
+**Solução:** O template Bicep já adiciona sufixo único automaticamente. Se ainda falhar:
+
+```powershell
+cd scripts
+.\purge-deleted-resources.ps1 -Location "eastus" -OpenAIName "openai-demo"
 ```
 
 ---
 
-## 📚 Interactive API Documentation
+### Container App não inicia (0 réplicas)
 
-### Container Apps
-- **Swagger UI**: `https://<app-name>.azurecontainerapps.io/docs`
-- **ReDoc**: `https://<app-name>.azurecontainerapps.io/redoc`
+**Causa:** Permissões de ACR ainda não propagaram.
 
-### Azure Functions
-Azure Functions does not automatically generate OpenAPI documentation, but you can access the web UI at `/api/index`.
+**Solução:** Aguarde 2-3 minutos após o deploy da infraestrutura e execute novamente o workflow "2️⃣ Build and Deploy".
 
 ---
 
-## 🛠️ Dependencies
+### Para mais detalhes:
 
-### Container Apps (FastAPI)
-- `fastapi` - Modern web framework for building APIs
-- `uvicorn` - ASGI server for running FastAPI
-- `openai` - Azure OpenAI client library
-- `azure-identity` - Azure authentication library
-- `httpx` - HTTP client (required by openai library)
-- `pydantic` - Data validation using Python type hints
-
-### Azure Functions
-- `azure-functions` - Azure Functions Python worker
-- `openai` - Azure OpenAI client library
-- `azure-identity` - Azure authentication library
+Consulte o arquivo **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** com soluções completas.
 
 ---
 
-## 📚 Additional Resources
+## 📁 Estrutura do Projeto
 
-### Documentation
-- **[GitHub Actions Setup Guide](.github/GITHUB_ACTIONS_SETUP.md)** - Complete CI/CD configuration
-- [Azure Container Apps Best Practices](https://learn.microsoft.com/en-us/azure/well-architected/service-guides/azure-container-apps)
-- [Deploy Bicep with GitHub Actions](https://learn.microsoft.com/en-us/azure/azure-resource-manager/bicep/deploy-github-actions)
-- [Azure RBAC Troubleshooting](https://learn.microsoft.com/en-us/azure/role-based-access-control/troubleshooting)
-
-### Pricing
-- [Azure Container Apps Pricing](https://azure.microsoft.com/pricing/details/container-apps/)
-- [Azure Functions Pricing](https://azure.microsoft.com/pricing/details/functions/)
-- [Azure OpenAI Service Pricing](https://azure.microsoft.com/pricing/details/cognitive-services/openai-service/)
+```
+ai-container-demo/
+├── .github/
+│   └── workflows/
+│       ├── deploy-infrastructure.yml    # 1️⃣ Deploy da infraestrutura
+│       └── build-and-deploy-app.yml     # 2️⃣ Build e deploy da app
+│
+├── container-app/                       # 🐍 Aplicação FastAPI
+│   ├── main.py                         # Código principal
+│   ├── requirements.txt                # Dependências Python
+│   ├── Dockerfile                      # Imagem Docker
+│   └── static/
+│       └── index.html                  # Interface web do chat
+│
+├── infrastructure/                      # 🏗️ Infraestrutura como Código
+│   └── main.bicep                      # Template Bicep completo
+│
+├── scripts/                            # 🔧 Scripts de automação
+│   ├── build-and-deploy.ps1           # Setup inicial (OIDC + Secrets)
+│   ├── fix-oidc.ps1                   # Correção de OIDC
+│   └── purge-deleted-resources.ps1    # Limpeza de recursos deletados
+│
+├── README.md                           # 📖 Este arquivo
+└── TROUBLESHOOTING.md                 # 🔍 Guia de solução de problemas
+```
 
 ---
 
-## 📄 License
+## 🔐 Segurança
 
-This is a demo application for educational purposes.
+Esta demo implementa as melhores práticas de segurança:
+
+- ✅ **Managed Identity** - Sem chaves de API no código
+- ✅ **OIDC** - Autenticação GitHub Actions sem secrets de longa duração
+- ✅ **RBAC** - Princípio do menor privilégio
+- ✅ **HTTPS Only** - Todas as comunicações criptografadas
+- ✅ **Key Vault** - Secrets gerenciados centralmente
+- ✅ **Soft Delete** - Proteção contra exclusão acidental
 
 ---
 
-## 🤝 Contributing
+## 💰 Custos Estimados
 
-Feel free to submit issues or pull requests to improve this demo!
+| Recurso | Tier | Custo Mensal Estimado* |
+|---------|------|------------------------|
+| Azure Container Apps | Consumption | ~$5-20 (scale-to-zero) |
+| Azure Container Registry | Basic | ~$5 |
+| Azure OpenAI (GPT-4o-mini) | Standard | ~$10-50 (pay-per-use) |
+| Storage Account | Standard LRS | ~$1 |
+| Key Vault | Standard | ~$1 |
+| **Total** | | **~$22-77/mês** |
+
+*Custos podem variar baseado no uso real e região.
 
 ---
 
-## 📧 Contact
+## 📚 Recursos Adicionais
 
-For questions or feedback, reach out to:
-- Andressa Siqueira - [ansiqueira@microsoft.com](mailto:ansiqueira@microsoft.com)
-- Vicente Maciel Jr - [vicentem@microsoft.com](mailto:vicentem@microsoft.com)
+### Documentação Microsoft:
+
+- [Azure Container Apps](https://learn.microsoft.com/azure/container-apps/)
+- [Azure OpenAI Service](https://learn.microsoft.com/azure/ai-services/openai/)
+- [Managed Identity](https://learn.microsoft.com/azure/active-directory/managed-identities-azure-resources/)
+- [GitHub Actions OIDC](https://docs.github.com/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect)
+- [Bicep Language](https://learn.microsoft.com/azure/azure-resource-manager/bicep/)
+
+### Tecnologias Utilizadas:
+
+- **FastAPI** - Framework web Python moderno
+- **OpenAI SDK** - Cliente oficial Python
+- **Docker** - Containerização
+- **Bicep** - Infrastructure as Code
+- **GitHub Actions** - CI/CD
+
+---
+
+## 🤝 Contribuindo
+
+Sinta-se à vontade para abrir issues ou pull requests com melhorias!
+
+---
+
+## 📧 Contato
+
+Para dúvidas ou feedback:
+
+- **Andressa Siqueira** - [ansiqueira@microsoft.com](mailto:ansiqueira@microsoft.com)
+- **Vicente Maciel Jr** - [vicentem@microsoft.com](mailto:vicentem@microsoft.com)
+
+---
+
+## 📄 Licença
+
+Este projeto é uma demo educacional da Microsoft.
+
+---
+
+**Desenvolvido com ❤️ pela Microsoft**
 
 
