@@ -102,25 +102,28 @@ git clone https://github.com/AndressaSiqueira/ai-container-demo.git
 cd ai-container-demo
 ```
 
-#### 2. Configure variáveis de ambiente
-
-Crie um arquivo `.env` na pasta `container-app`:
-
-```bash
-# Local testing (sem Managed Identity)
-AZURE_OPENAI_ENDPOINT=https://seu-endpoint.openai.azure.com/openai/v1/
-AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
-AZURE_OPENAI_API_KEY=sua-chave-temporaria-para-testes
-```
-
-⚠️ **Nota:** Para testes locais, você precisará usar uma API Key temporária. Em produção, use apenas Managed Identity.
-
-#### 3. Instale as dependências
+#### 2. Instale as dependências
 
 ```bash
 cd container-app
 pip install -r requirements.txt
 ```
+
+#### 3. Configure variáveis de ambiente (opcional)
+
+Para testes locais com Azure OpenAI, defina as variáveis:
+
+```bash
+# Windows PowerShell
+$env:AZURE_OPENAI_ENDPOINT="https://seu-endpoint.openai.azure.com/openai/v1/"
+$env:AZURE_OPENAI_DEPLOYMENT="gpt-4o-mini"
+
+# Linux/macOS
+export AZURE_OPENAI_ENDPOINT="https://seu-endpoint.openai.azure.com/openai/v1/"
+export AZURE_OPENAI_DEPLOYMENT="gpt-4o-mini"
+```
+
+⚠️ **Nota:** Para testes locais, use `az login` para autenticação. A aplicação usará suas credenciais do Azure CLI.
 
 #### 4. Execute a aplicação
 
@@ -134,13 +137,127 @@ Abra: http://localhost:8000
 
 Você verá a interface de chat para interagir com o Azure OpenAI.
 
-#### 6. Teste a API (opcional)
+---
+
+### Opção 2: Deploy Completo no Azure (Produção)
+
+Este é o caminho recomendado para produção, usando CI/CD automatizado.
+
+#### **Passo 1: Configure a Infraestrutura Azure e GitHub Secrets**
+
+Execute o script de setup **uma única vez**:
+
+```powershell
+# Abra PowerShell 7+ como Administrador
+cd ai-container-demo/scripts
+
+# Execute o script de configuração
+.\build-and-deploy.ps1 `
+  -ResourceGroup "rg-ai-demo" `
+  -Location "eastus" `
+  -ACRName "acrdemo$(Get-Random -Maximum 9999)" `
+  -ContainerAppName "ai-chat-app" `
+  -AzureOpenAIName "openai-demo"
+```
+
+**O que este script faz:**
+
+✅ Cria o Resource Group no Azure  
+✅ Cria Service Principal com OIDC (autenticação GitHub → Azure)  
+✅ Cria Managed Identity para o Container App  
+✅ Atribui roles necessárias (Contributor, User Access Administrator)  
+✅ Configura automaticamente os **GitHub Secrets** no seu repositório:
+   - `AZURE_TENANT_ID`
+   - `AZURE_CLIENT_ID`
+   - `AZURE_SUBSCRIPTION_ID`
+   - `RESOURCE_GROUP`
+   - `CONTAINER_APP_NAME`
+   - `ACR_NAME`
+   - `OPENAI_NAME`
+
+**Tempo estimado:** 2-3 minutos
+
+---
+
+#### **Passo 2: Execute o Workflow de Deploy da Infraestrutura**
+
+1. Acesse seu repositório no GitHub:
+   ```
+   https://github.com/SEU-USUARIO/ai-container-demo/actions
+   ```
+
+2. Clique no workflow **"1️⃣ Deploy Infrastructure"**
+
+3. Clique em **"Run workflow"**
+   - Branch: `main`
+   - Clique em **"Run workflow"**
+
+**O que este workflow faz:**
+
+✅ Cria Azure Container Registry (ACR)  
+✅ Cria Azure OpenAI com modelo GPT-4o-mini deployado  
+✅ Cria AI Hub e AI Project (Azure AI Foundry)  
+✅ Cria Container App Environment  
+✅ Cria Container App (inicialmente com imagem placeholder)  
+✅ Configura todas as permissões RBAC (Managed Identity)  
+✅ Cria Key Vault, Storage Account, Application Insights  
+
+**Tempo estimado:** 8-12 minutos
+
+---
+
+#### **Passo 3: Execute o Workflow de Build e Deploy da Aplicação**
+
+⏱️ **Aguarde 2-3 minutos** após o Passo 2 para propagação das permissões Azure RBAC.
+
+1. No GitHub Actions, clique no workflow **"2️⃣ Build and Deploy Container App"**
+
+2. Clique em **"Run workflow"**
+   - Branch: `main`
+   - Clique em **"Run workflow"**
+
+**O que este workflow faz:**
+
+✅ Aguarda 1 minuto adicional para propagação de roles  
+✅ Faz build da imagem Docker da aplicação  
+✅ Push da imagem para o ACR  
+✅ Atualiza o Container App com a nova imagem  
+✅ Configura variáveis de ambiente (endpoints, deployment name)  
+✅ Ativa o Container App (scale min replicas para 1)  
+
+**Tempo estimado:** 3-5 minutos
+
+---
+
+#### **Passo 4: Acesse sua Aplicação**
+
+Após a conclusão do workflow, você verá no log:
+
+```
+🚀 Container App URL: https://ai-chat-app.REGION.azurecontainerapps.io
+📊 Test endpoint: https://ai-chat-app.REGION.azurecontainerapps.io/responses
+```
+
+**Acesse a URL** no navegador para usar o chat com Azure OpenAI! 🎉
+
+---
+
+## 📊 Endpoints da API
+
+| Endpoint | Método | Descrição |
+|----------|--------|-----------|
+| `/` | GET | Interface web do chat |
+| `/responses` | POST | Endpoint da API para enviar mensagens |
+| `/docs` | GET | Documentação Swagger da API |
+| `/redoc` | GET | Documentação ReDoc da API |
+
+### Exemplo de uso da API:
 
 ```bash
 # Usando curl
-curl -X POST http://localhost:8000/responses \
+curl -X POST https://sua-app.azurecontainerapps.io/responses \
   -H "Content-Type: application/json" \
-  -d '{"ask":"O que é Inteligência Artificial?"}'
+  -d '{"ask":"Explique o que é Azure Container Apps"}'
 
 # Usando PowerShell
 Invoke-RestMethod -Uri "http://localhost:8000/responses" `
