@@ -277,50 +277,6 @@ curl -X POST https://sua-app.azurecontainerapps.io/responses \
   "response": "Azure Container Apps é uma plataforma serverless..."
 }
 ```
-
----
-
-## 🔧 Troubleshooting
-
-### Erro: AADSTS700213 (Federated identity not found)
-
-**Causa:** O OIDC não foi configurado corretamente ou ainda não propagou.
-
-**Solução:**
-```powershell
-cd scripts
-.\fix-oidc.ps1 -ResourceGroup "rg-ai-demo"
-```
-
-Aguarde 2-3 minutos e execute o workflow novamente.
-
----
-
-### Erro: CustomDomainInUse (Azure OpenAI)
-
-**Causa:** Nome do Azure OpenAI já existe ou está em soft-delete.
-
-**Solução:** O template Bicep já adiciona sufixo único automaticamente. Se ainda falhar:
-
-```powershell
-cd scripts
-.\purge-deleted-resources.ps1 -Location "eastus" -OpenAIName "openai-demo"
-```
-
----
-
-### Container App não inicia (0 réplicas)
-
-**Causa:** Permissões de ACR ainda não propagaram.
-
-**Solução:** Aguarde 2-3 minutos após o deploy da infraestrutura e execute novamente o workflow "2️⃣ Build and Deploy".
-
----
-
-### Para mais detalhes:
-
-Consulte o arquivo **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** com soluções completas.
-
 ---
 
 ## 📁 Estrutura do Projeto
@@ -418,10 +374,11 @@ Para dúvidas ou feedback:
 
 ## 📄 Licença
 
-Este projeto é uma demo educacional da Microsoft.
+Este projeto é uma demo educacional por Andressa Siqueira e Vicente Maciel.
 
 ---
 
-**Desenvolvido com ❤️ pela Microsoft**
+**Desenvolvido com ❤️ por Andressa Siqueira e Vicente Maciel**
+
 
 
