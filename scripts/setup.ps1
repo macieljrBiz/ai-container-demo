@@ -230,7 +230,7 @@ if ([string]::IsNullOrEmpty($uaaAssignment)) {
 # ============================================================================
 Write-Step "Configurando OIDC para GitHub Actions..."
 
-$subject = "repo:$GitHubRepo:ref:refs/heads/$currentBranch"
+$subject = "repo:${GitHubRepo}:ref:refs/heads/${currentBranch}"
 $credentialName = "github-oidc-$currentBranch"
 
 # Verificar se já existe e se o subject está correto
