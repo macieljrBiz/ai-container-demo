@@ -51,6 +51,15 @@ function Write-Warning {
 # ============================================================================
 Write-Step "Detectando repositório GitHub..."
 
+# Ir para a raiz do repositório (caso esteja em subpasta)
+$scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
+$repoRoot = git -C $scriptPath rev-parse --show-toplevel 2>$null
+
+if ($LASTEXITCODE -eq 0 -and $repoRoot) {
+    Push-Location $repoRoot
+    Write-Host "Mudando para raiz do repositório: $repoRoot" -ForegroundColor Gray
+}
+
 # Verificar se está em um repositório Git
 $gitCheck = git rev-parse --is-inside-work-tree 2>$null
 if ($LASTEXITCODE -ne 0) {

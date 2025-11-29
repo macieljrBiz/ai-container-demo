@@ -128,9 +128,7 @@ git push -u origin main
 **Execute:**
 
 ```powershell
-cd scripts
-
-.\setup.ps1 `
+.\scripts\setup.ps1 `
   -ResourceGroup "rg-ai-demo" `
   -Location "eastus" `
   -ACRName "acr$(Get-Random -Maximum 9999)" `
