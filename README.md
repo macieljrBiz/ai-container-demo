@@ -154,50 +154,64 @@ ai-container-demo/
 
 ## 🚀 Deploy via GitHub Actions
 
-**📚 Guia completo:** [.github/GITHUB-REQUISITOS.md](.github/GITHUB-REQUISITOS.md)
+### Setup Inicial (Execute UMA VEZ)
 
-### Resumo Rápido:
+**1. Configure sua infraestrutura Azure e GitHub Secrets**
 
-1. **Setup OIDC** (uma vez):
-   
-   **PowerShell:**
-   ```powershell
-   # Criar Service Principal
-   $SUBSCRIPTION_ID = az account show --query id -o tsv
-   az ad sp create-for-rbac `
-     --name "sp-github-oidc-setup" `
-     --role "Owner" `
-     --scopes "/subscriptions/$SUBSCRIPTION_ID" `
-     --sdk-auth
-   
-   # Configurar AZURE_SETUP_CREDENTIALS no GitHub
-   # Executar workflow: 0️⃣ Setup OIDC
-   # Configurar 3 secrets OIDC
-   # Executar workflow: 3️⃣ Cleanup Service Principal
-   ```
-   
-   **Bash:**
-   ```bash
-   # Criar Service Principal
-   SUBSCRIPTION_ID=$(az account show --query id -o tsv)
-   az ad sp create-for-rbac \
-     --name "sp-github-oidc-setup" \
-     --role "Owner" \
-     --scopes "/subscriptions/$SUBSCRIPTION_ID" \
-     --sdk-auth
-   
-   # Configurar AZURE_SETUP_CREDENTIALS no GitHub
-   # Executar workflow: 0️⃣ Setup OIDC
-   # Configurar 3 secrets OIDC
-   # Executar workflow: 3️⃣ Cleanup Service Principal
-   ```
+Execute o script de configuração (requer Azure CLI e GitHub CLI):
 
-2. **Deploy** (sempre):
-   ```
-   Executar: 1️⃣ Deploy Infrastructure
-   Aguardar: 2-3 minutos
-   Executar: 2️⃣ Activate Container App
-   ```
+```powershell
+# PowerShell
+cd scripts
+.\build-and-deploy.ps1 `
+  -ResourceGroup "rg-ai-container-demo" `
+  -Location "eastus" `
+  -ACRName "acraidemo2025" `
+  -ContainerAppName "ai-container-app" `
+  -AzureOpenAIName "foundry-ai"
+```
+
+Este script irá:
+- ✅ Criar Resource Group
+- ✅ Criar Service Principal com OIDC (Federated Identity)
+- ✅ Atribuir roles necessárias (Contributor + User Access Administrator)
+- ✅ Criar Managed Identity para o Container App
+- ✅ Configurar automaticamente os GitHub Secrets necessários
+
+**Secrets configurados automaticamente:**
+- `AZURE_TENANT_ID` - ID do tenant Azure AD
+- `AZURE_CLIENT_ID` - Client ID do Service Principal
+- `AZURE_SUBSCRIPTION_ID` - ID da subscription
+- `RESOURCE_GROUP` - Nome do resource group
+- `CONTAINER_APP_NAME` - Nome do container app
+- `ACR_NAME` - Nome do Azure Container Registry
+- `OPENAI_NAME` - Nome do Azure OpenAI
+
+**2. Execute os workflows do GitHub Actions**
+
+Após aguardar 2-3 minutos para propagação:
+
+1. **Deploy Infrastructure**: 
+   - GitHub → Actions → "1️⃣ Deploy Infrastructure" → Run workflow
+   - Isso vai criar: ACR, OpenAI, AI Hub/Project, Container App
+
+2. **Build and Deploy App**:
+   - Será executado automaticamente após o deploy da infraestrutura
+   - Ou execute manualmente: "2️⃣ Build and Deploy Container App"
+
+### 🔧 Troubleshooting
+
+Se você encontrar o erro `AADSTS700213` (federated identity not found):
+
+```powershell
+# Execute o script de correção
+cd scripts
+.\fix-oidc.ps1 -ResourceGroup "rg-ai-container-demo"
+```
+
+Aguarde 2-3 minutos e execute novamente o workflow.
+
+Para mais detalhes, consulte: [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
 
 ---
 

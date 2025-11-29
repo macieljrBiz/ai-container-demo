@@ -72,13 +72,13 @@ resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
 }
 
 resource azureOpenAI 'Microsoft.CognitiveServices/accounts@2024-10-01' = {
-  name: azureOpenAIName
+  name: '${azureOpenAIName}-${uniqueString(resourceGroup().id)}'
   location: location
   kind: 'OpenAI'
   sku: { name: 'S0' }
   properties: {
     publicNetworkAccess: 'Enabled'
-    customSubDomainName: azureOpenAIName
+    customSubDomainName: '${azureOpenAIName}-${uniqueString(resourceGroup().id)}'
   }
 }
 

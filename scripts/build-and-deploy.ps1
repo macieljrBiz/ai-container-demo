@@ -126,7 +126,7 @@ Write-Success "Roles atribuidas: Contributor + User Access Administrator"
 # ============================================================================
 Write-Step "Configurando OIDC para GitHub Actions..."
 
-$subject = "repo:$GitHubRepo:ref:refs/heads/$GitHubBranch"
+$subject = "repo:" + $GitHubRepo + ":ref:refs/heads/" + $GitHubBranch
 $credentialName = "github-oidc-$GitHubBranch"
 
 # Verificar se ja existe
