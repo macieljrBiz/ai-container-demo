@@ -249,10 +249,22 @@ Write-Step "Configurando OIDC para GitHub Actions..."
 $subject = "repo:$gitHubRepo:ref:refs/heads/$currentBranch"
 $credentialName = "github-oidc-$currentBranch"
 
-# Verificar se já existe
-$existingCred = az ad app federated-credential list --id $appId --query "[?name=='$credentialName'].name" -o tsv 2>$null
+# Verificar se já existe e se o subject está correto
+$existingCreds = az ad app federated-credential list --id $appId 2>$null | ConvertFrom-Json
+$matchingCred = $existingCreds | Where-Object { $_.name -eq $credentialName }
 
-if ([string]::IsNullOrEmpty($existingCred)) {
+if ($matchingCred) {
+    # Verificar se o subject está correto
+    if ($matchingCred.subject -ne $subject) {
+        Write-Host "OIDC existe mas com subject diferente. Deletando e recriando..."
+        az ad app federated-credential delete --id $appId --federated-credential-id $credentialName --output none 2>$null
+        $matchingCred = $null
+    } else {
+        Write-Success "OIDC já configurado corretamente para: $subject"
+    }
+}
+
+if (-not $matchingCred) {
     Write-Host "Criando federated credential..."
     
     $oidcParams = @{
@@ -269,8 +281,6 @@ if ([string]::IsNullOrEmpty($existingCred)) {
     Remove-Item $tempFile
     
     Write-Success "OIDC configurado para: $subject"
-} else {
-    Write-Success "OIDC já configurado"
 }
 
 # ============================================================================
