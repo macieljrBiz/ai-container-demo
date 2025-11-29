@@ -6,6 +6,34 @@ Vicente Maciel Jr - [vicentem@microsoft.com](mailto:vicentem@microsoft.com)
 
 ---
 
+## ⚠️ IMPORTANTE: Fez Fork ou Clone?
+
+> **Os GitHub Actions não funcionarão automaticamente!**  
+> GitHub Secrets (credenciais do Azure) **não são copiados** em forks/clones por segurança.
+
+### 🚀 Solução Rápida: Use o Script Automático
+
+```powershell
+cd scripts
+.\setup-forked-repo.ps1 `
+  -ResourceGroup "rg-ai-demo-SEUNOME" `
+  -Location "eastus" `
+  -ACRName "acrdemo$(Get-Random -Maximum 9999)" `
+  -ContainerAppName "ai-chat-app" `
+  -AzureOpenAIName "openai-demo"
+```
+
+**O que ele faz:**
+- ✅ Detecta automaticamente SEU repositório GitHub
+- ✅ Detecta a branch atual  
+- ✅ Cria Service Principal e OIDC corretos para VOCÊ
+- ✅ Configura todos os 7 GitHub Secrets no SEU repo
+- ✅ Valida permissões antes de começar
+
+📖 **Veja instruções completas na seção [Deploy no Azure](#opção-2-deploy-completo-no-azure-produção)**
+
+---
+
 ## 📝 Sobre o Projeto
 
 Demonstração prática de como integrar **Azure OpenAI** com **Azure Container Apps** usando **autenticação por Managed Identity** e **CI/CD profissional via GitHub Actions**.
@@ -68,6 +96,32 @@ Esta demo serve como referência para implementar aplicações modernas de IA no
 │  └──────────────────┘ │
 └────────────────────────┘
 ```
+
+---
+
+## ⚠️ IMPORTANTE: Fez Fork ou Clone?
+
+> **Os GitHub Actions não funcionarão automaticamente!**  
+> GitHub Secrets (credenciais do Azure) **não são copiados** em forks/clones por segurança.
+
+**Você tem 2 opções:**
+
+### 🚀 Opção 1: Script Automático (Recomendado)
+```powershell
+cd scripts
+.\setup-forked-repo.ps1 `
+  -ResourceGroup "rg-ai-demo-SEUNOME" `
+  -Location "eastus" `
+  -ACRName "acrdemo$(Get-Random -Maximum 9999)" `
+  -ContainerAppName "ai-chat-app" `
+  -AzureOpenAIName "openai-demo"
+```
+✅ Detecta automaticamente SEU repositório  
+✅ Cria Service Principal e OIDC corretos  
+✅ Configura todos os secrets automaticamente
+
+### 📝 Opção 2: Configuração Manual
+Veja instruções detalhadas na seção [Deploy no Azure](#opção-2-deploy-completo-no-azure-produção) abaixo.
 
 ---
 
@@ -142,28 +196,140 @@ Você verá a interface de chat para interagir com o Azure OpenAI.
 ### Opção 2: Deploy Completo no Azure (Produção)
 
 Este é o caminho recomendado para produção, usando CI/CD automatizado.
-#### 1. Clone o repositório
+
+#### **1. Fork ou Clone o Repositório**
+
+**Escolha UMA opção:**
+
+<details>
+<summary><b>🍴 Opção A - Fork (Recomendado para contribuir)</b></summary>
+
+1. Clique em **"Fork"** no GitHub: https://github.com/AndressaSiqueira/ai-container-demo
+2. Clone SEU fork:
 ```powershell
-# Abra PowerShell 7+ como Administrador
-git clone https://github.com/AndressaSiqueira/ai-container-demo.git
+git clone https://github.com/SEU-USUARIO/ai-container-demo.git
+cd ai-container-demo
 ```
+
+✅ Vantagens: Pode contribuir de volta com Pull Requests  
+⚠️ Requer: Configurar secrets no SEU repositório
+
+</details>
+
+<details>
+<summary><b>📥 Opção B - Clone Direto (Apenas usar)</b></summary>
+
+```powershell
+git clone https://github.com/AndressaSiqueira/ai-container-demo.git
+cd ai-container-demo
+```
+
+✅ Vantagens: Simples e rápido  
+⚠️ Requer: Criar seu próprio repositório no GitHub e configurar secrets
+
+</details>
+
+---
 
 #### **2: Configure a Infraestrutura Azure e GitHub Secrets**
 
-Execute o script de setup **uma única vez**:
+> **🎯 Use o script correto baseado na sua situação:**
+
+<details>
+<summary><b>✅ SE VOCÊ FEZ FORK/CLONE → Use este (Detecta automaticamente)</b></summary>
 
 ```powershell
-# Abra PowerShell 7+ como Administrador
-cd ai-container-demo/scripts
+cd scripts
 
-# Execute o script de configuração
-.\build-and-deploy.ps1 `
+# ✨ Script INTELIGENTE - detecta automaticamente seu repositório!
+.\setup-forked-repo.ps1 `
   -ResourceGroup "rg-ai-demo" `
   -Location "eastus" `
   -ACRName "acrdemo$(Get-Random -Maximum 9999)" `
   -ContainerAppName "ai-chat-app" `
   -AzureOpenAIName "openai-demo"
 ```
+
+**O que ele faz automaticamente:**
+- 🔍 Detecta seu repositório via `git remote`
+- 🔍 Detecta a branch atual
+- ✅ Valida suas permissões no GitHub e Azure
+- 🔐 Cria Service Principal com OIDC para SEU repo
+- 🔑 Configura todos os 7 GitHub Secrets necessários
+- 💾 Cria Managed Identity para o Container App
+
+**Pré-requisitos:**
+- Azure CLI autenticado: `az login`
+- GitHub CLI autenticado: `gh auth login`
+- Permissão de Admin no repositório fork
+
+</details>
+
+<details>
+<summary><b>📝 SE VOCÊ É O DONO ORIGINAL → Use este (Manual)</b></summary>
+
+```powershell
+cd scripts
+
+.\build-and-deploy.ps1 `
+  -ResourceGroup "rg-ai-demo" `
+  -Location "eastus" `
+  -ACRName "acrdemo$(Get-Random -Maximum 9999)" `
+  -ContainerAppName "ai-chat-app" `
+  -AzureOpenAIName "openai-demo" `
+  -GitHubRepo "SEU-USUARIO/ai-container-demo"  # ⚠️ Especificar manualmente
+```
+
+</details>
+
+<details>
+<summary><b>🔧 Opção Avançada: Configuração Manual (Sem script)</b></summary>
+
+Se preferir configurar manualmente sem scripts:
+
+**1. Criar Service Principal:**
+```powershell
+az login
+$appId = az ad app create --display-name "sp-github-ai-demo" --query appId -o tsv
+az ad sp create --id $appId
+
+# Obter IDs
+$subscriptionId = az account show --query id -o tsv
+$tenantId = az account show --query tenantId -o tsv
+
+# Atribuir permissões
+az role assignment create \
+  --assignee $appId \
+  --role Contributor \
+  --scope "/subscriptions/$subscriptionId/resourceGroups/rg-ai-demo"
+```
+
+**2. Configurar OIDC:**
+```powershell
+az ad app federated-credential create \
+  --id $appId \
+  --parameters '{
+    "name": "github-oidc-main",
+    "issuer": "https://token.actions.githubusercontent.com",
+    "subject": "repo:SEU-USUARIO/ai-container-demo:ref:refs/heads/main",
+    "audiences": ["api://AzureADTokenExchange"]
+  }'
+```
+
+**3. Criar Secrets no GitHub:**
+
+Vá para: `https://github.com/SEU-USUARIO/ai-container-demo/settings/secrets/actions`
+
+Adicione:
+- `AZURE_TENANT_ID` → Seu Tenant ID
+- `AZURE_CLIENT_ID` → App ID do Service Principal
+- `AZURE_SUBSCRIPTION_ID` → ID da Subscription
+- `RESOURCE_GROUP` → `rg-ai-demo`
+- `CONTAINER_APP_NAME` → `ai-chat-app`
+- `ACR_NAME` → `acrdemoXXXX` (único)
+- `OPENAI_NAME` → `openai-demo`
+
+</details>
 
 **O que este script faz:**
 
@@ -186,64 +352,81 @@ cd ai-container-demo/scripts
 
 #### **3: Execute o Workflow de Deploy da Infraestrutura**
 
-1. Acesse seu repositório no GitHub:
+1. **Acesse GitHub Actions no SEU repositório:**
    ```
    https://github.com/SEU-USUARIO/ai-container-demo/actions
    ```
 
-2. Clique no workflow **"1️⃣ Deploy Infrastructure"**
+2. **Clique no workflow "1️⃣ Deploy Infrastructure"**
 
-3. Clique em **"Run workflow"**
-   - Branch: `main`
+3. **Clique em "Run workflow"**
+   - Branch: `main` (ou sua branch atual)
    - Clique em **"Run workflow"**
 
-**O que este workflow faz:**
+<details>
+<summary>🔍 O que acontece neste workflow?</summary>
 
-✅ Cria Azure Container Registry (ACR)  
-✅ Cria Azure OpenAI com modelo GPT-4o-mini deployado  
-✅ Cria AI Hub e AI Project (Azure AI Foundry)  
-✅ Cria Container App Environment  
-✅ Cria Container App (inicialmente com imagem placeholder)  
-✅ Configura todas as permissões RBAC (Managed Identity)  
-✅ Cria Key Vault, Storage Account, Application Insights  
+O workflow executa o template Bicep (`infrastructure/main.bicep`) que cria:
 
-**Tempo estimado:** 8-12 minutos
+- ✅ **Azure Container Registry (ACR)** - Repositório de imagens Docker
+- ✅ **Azure OpenAI** - Com modelo GPT-4o-mini deployado
+- ✅ **AI Hub + AI Project** - Azure AI Foundry (ML workspace)
+- ✅ **Container App Environment** - Ambiente serverless
+- ✅ **Container App** - Sua aplicação (inicialmente com imagem placeholder)
+- ✅ **Managed Identity** - Autenticação segura sem chaves
+- ✅ **RBAC Roles** - Permissões para Container App → OpenAI
+- ✅ **Key Vault** - Gerenciamento de secrets
+- ✅ **Storage Account** - Armazenamento para AI Hub
+- ✅ **Application Insights** - Monitoramento e logs
+
+**Tempo estimado:** 8-12 minutos ⏱️
+
+</details>
 
 ---
 
 #### **4: Execute o Workflow de Build e Deploy da Aplicação**
 
-⏱️ **Aguarde 2-3 minutos** após o Passo 2 para propagação das permissões Azure RBAC.
+⏱️ **Aguarde 2-3 minutos** após o Passo 3 para propagação das permissões RBAC no Azure.
 
-1. No GitHub Actions, clique no workflow **"2️⃣ Build and Deploy Container App"**
+1. **No GitHub Actions, clique no workflow "2️⃣ Build and Deploy Container App"**
 
-2. Clique em **"Run workflow"**
-   - Branch: `main`
+2. **Clique em "Run workflow"**
+   - Branch: `main` (ou sua branch atual)
    - Clique em **"Run workflow"**
 
-**O que este workflow faz:**
+<details>
+<summary>🔍 O que acontece neste workflow?</summary>
 
-✅ Aguarda 1 minuto adicional para propagação de roles  
-✅ Faz build da imagem Docker da aplicação  
-✅ Push da imagem para o ACR  
-✅ Atualiza o Container App com a nova imagem  
-✅ Configura variáveis de ambiente (endpoints, deployment name)  
-✅ Ativa o Container App (scale min replicas para 1)  
+O workflow constrói e deploya sua aplicação:
 
-**Tempo estimado:** 3-5 minutos
+- ⏳ Aguarda 60s para propagação de roles Azure
+- 🐳 Build da imagem Docker (`container-app/`)
+- 📤 Push da imagem para o ACR
+- 🔄 Atualiza Container App com a nova imagem
+- ⚙️ Configura variáveis de ambiente:
+  - `AZURE_OPENAI_ENDPOINT`
+  - `AZURE_OPENAI_DEPLOYMENT`
+  - `AZURE_CLIENT_ID` (Managed Identity)
+- 📊 Configura recursos: 0.5 CPU, 1GB RAM
+- 🚀 Ativa auto-scaling: min 0 → max 10 réplicas
+
+**Tempo estimado:** 3-5 minutos ⏱️
+
+</details>
 
 ---
 
-#### **Passo 5: Acesse sua Aplicação**
+#### **5: Acesse sua Aplicação! 🎉**
 
-Após a conclusão do workflow, você verá no log:
+Após a conclusão do workflow, você verá no log do GitHub Actions:
 
 ```
 🚀 Container App URL: https://ai-chat-app.REGION.azurecontainerapps.io
 📊 Test endpoint: https://ai-chat-app.REGION.azurecontainerapps.io/responses
 ```
 
-**Acesse a URL** no navegador para usar o chat com Azure OpenAI! 🎉
+**Clique na URL** ou copie e cole no navegador para usar o chat! 🤖✨
 
 ---
 
@@ -271,134 +454,6 @@ Invoke-RestMethod -Uri "http://localhost:8000/responses" `
   -Body '{"ask":"O que é Inteligência Artificial?"}'
 ```
 
----
-
-### Opção 2: Deploy Completo no Azure (Produção)
-
-Este é o caminho recomendado para produção, usando CI/CD automatizado.
-
-#### **Passo 1: Configure a Infraestrutura Azure e GitHub Secrets**
-
-Execute o script de setup **uma única vez**:
-
-```powershell
-# Abra PowerShell 7+ como Administrador
-cd ai-container-demo/scripts
-
-# Execute o script de configuração
-.\build-and-deploy.ps1 `
-  -ResourceGroup "rg-ai-demo" `
-  -Location "eastus" `
-  -ACRName "acrdemo$(Get-Random -Maximum 9999)" `
-  -ContainerAppName "ai-chat-app" `
-  -AzureOpenAIName "openai-demo"
-```
-
-**O que este script faz:**
-
-✅ Cria o Resource Group no Azure  
-✅ Cria Service Principal com OIDC (autenticação GitHub → Azure)  
-✅ Cria Managed Identity para o Container App  
-✅ Atribui roles necessárias (Contributor, User Access Administrator)  
-✅ Configura automaticamente os **GitHub Secrets** no seu repositório:
-   - `AZURE_TENANT_ID`
-   - `AZURE_CLIENT_ID`
-   - `AZURE_SUBSCRIPTION_ID`
-   - `RESOURCE_GROUP`
-   - `CONTAINER_APP_NAME`
-   - `ACR_NAME`
-   - `OPENAI_NAME`
-
-**Tempo estimado:** 2-3 minutos
-
----
-
-#### **Passo 2: Execute o Workflow de Deploy da Infraestrutura**
-
-1. Acesse seu repositório no GitHub:
-   ```
-   https://github.com/SEU-USUARIO/ai-container-demo/actions
-   ```
-
-2. Clique no workflow **"1️⃣ Deploy Infrastructure"**
-
-3. Clique em **"Run workflow"**
-   - Branch: `main`
-   - Clique em **"Run workflow"**
-
-**O que este workflow faz:**
-
-✅ Cria Azure Container Registry (ACR)  
-✅ Cria Azure OpenAI com modelo GPT-4o-mini deployado  
-✅ Cria AI Hub e AI Project (Azure AI Foundry)  
-✅ Cria Container App Environment  
-✅ Cria Container App (inicialmente com imagem placeholder)  
-✅ Configura todas as permissões RBAC (Managed Identity)  
-✅ Cria Key Vault, Storage Account, Application Insights  
-
-**Tempo estimado:** 8-12 minutos
-
----
-
-#### **Passo 3: Execute o Workflow de Build e Deploy da Aplicação**
-
-⏱️ **Aguarde 2-3 minutos** após o Passo 2 para propagação das permissões Azure RBAC.
-
-1. No GitHub Actions, clique no workflow **"2️⃣ Build and Deploy Container App"**
-
-2. Clique em **"Run workflow"**
-   - Branch: `main`
-   - Clique em **"Run workflow"**
-
-**O que este workflow faz:**
-
-✅ Aguarda 1 minuto adicional para propagação de roles  
-✅ Faz build da imagem Docker da aplicação  
-✅ Push da imagem para o ACR  
-✅ Atualiza o Container App com a nova imagem  
-✅ Configura variáveis de ambiente (endpoints, deployment name)  
-✅ Ativa o Container App (scale min replicas para 1)  
-
-**Tempo estimado:** 3-5 minutos
-
----
-
-#### **Passo 4: Acesse sua Aplicação**
-
-Após a conclusão do workflow, você verá no log:
-
-```
-🚀 Container App URL: https://ai-chat-app.REGION.azurecontainerapps.io
-📊 Test endpoint: https://ai-chat-app.REGION.azurecontainerapps.io/responses
-```
-
-**Acesse a URL** no navegador para usar o chat com Azure OpenAI! 🎉
-
----
-
-## 📊 Endpoints da API
-
-| Endpoint | Método | Descrição |
-|----------|--------|-----------|
-| `/` | GET | Interface web do chat |
-| `/responses` | POST | Endpoint da API para enviar mensagens |
-| `/docs` | GET | Documentação Swagger da API |
-| `/redoc` | GET | Documentação ReDoc da API |
-
-### Exemplo de uso da API:
-
-```bash
-curl -X POST https://sua-app.azurecontainerapps.io/responses \
-  -H "Content-Type: application/json" \
-  -d '{"ask":"Explique o que é Azure Container Apps"}'
-```
-
-**Resposta:**
-```json
-{
-  "response": "Azure Container Apps é uma plataforma serverless..."
-}
-```
 ---
 
 ## 📁 Estrutura do Projeto
@@ -448,9 +503,125 @@ Esta demo implementa as melhores práticas de segurança:
 
 | Recurso | Tier | Custo Mensal Estimado* |
 |---------|------|------------------------|
-| Azure Container Apps | Consumption | ~$5-20 (scale-to-zero) |
-| Azure Container Registry | Basic | ~$5 |
-| Azure OpenAI (GPT-4o-mini) | Standard | ~$10-50 (pay-per-use) |
+---
+
+## 🐛 Problemas Comuns
+
+<details>
+<summary><b>❌ GitHub Actions falha com "OIDC token is not valid"</b></summary>
+
+**Causa:** OIDC configurado para repositório/branch errado.
+
+**Solução:**
+```powershell
+# Execute novamente o script na branch correta
+git checkout main  # ou sua branch
+cd scripts
+.\setup-forked-repo.ps1 ...
+```
+
+O script recria o OIDC com as informações corretas.
+
+</details>
+
+<details>
+<summary><b>❌ Erro: "You do not have permission to set secrets"</b></summary>
+
+**Causa:** Você não tem permissão de admin no repositório.
+
+**Soluções:**
+1. Se for um fork, verifique se você é o dono do fork
+2. Configure secrets manualmente em: `Settings → Secrets and variables → Actions`
+3. Use a opção de configuração manual acima
+
+</details>
+
+<details>
+<summary><b>❌ Container App não inicia / fica em "Provisioning"</b></summary>
+
+**Possíveis causas:**
+- Permissões RBAC ainda propagando (aguarde 5 minutos)
+- Managed Identity sem acesso ao ACR
+- Imagem Docker com erro
+
+**Solução:**
+```powershell
+# Verificar logs do Container App
+az containerapp logs show \
+  --name ai-chat-app \
+  --resource-group rg-ai-demo \
+  --follow
+
+# Verificar revisões
+az containerapp revision list \
+  --name ai-chat-app \
+  --resource-group rg-ai-demo \
+  -o table
+```
+
+</details>
+
+<details>
+<summary><b>❌ Erro 403 ao acessar Azure OpenAI</b></summary>
+
+**Causa:** Managed Identity sem permissão "Cognitive Services OpenAI User".
+
+**Solução:**
+```powershell
+# Obter IDs necessários
+$identityId = az identity show \
+  --name id-ai-chat-app \
+  --resource-group rg-ai-demo \
+  --query principalId -o tsv
+
+$openaiId = az cognitiveservices account show \
+  --name openai-demo \
+  --resource-group rg-ai-demo \
+  --query id -o tsv
+
+# Atribuir role
+az role assignment create \
+  --assignee $identityId \
+  --role "Cognitive Services OpenAI User" \
+  --scope $openaiId
+```
+
+</details>
+
+<details>
+<summary><b>❌ Script pede GitHub CLI mas não quero instalar</b></summary>
+
+**Solução:** Use a configuração manual (expandir seção acima no Passo 2) e configure os secrets diretamente no GitHub:
+
+1. Vá para: `https://github.com/SEU-USUARIO/ai-container-demo/settings/secrets/actions`
+2. Clique em "New repository secret"
+3. Adicione cada secret manualmente
+
+</details>
+
+<details>
+<summary><b>ℹ️ Como verificar se os secrets estão configurados?</b></summary>
+
+```
+https://github.com/SEU-USUARIO/ai-container-demo/settings/secrets/actions
+```
+
+Você deve ver 7 secrets:
+- ✅ AZURE_TENANT_ID
+- ✅ AZURE_CLIENT_ID
+- ✅ AZURE_SUBSCRIPTION_ID
+- ✅ RESOURCE_GROUP
+- ✅ CONTAINER_APP_NAME
+- ✅ ACR_NAME
+- ✅ OPENAI_NAME
+
+**Nota:** Você não consegue ver os valores (por segurança), mas pode ver os nomes.
+
+</details>
+
+---
+
+## 📚 Recursos Adicionaisni) | Standard | ~$10-50 (pay-per-use) |
 | Storage Account | Standard LRS | ~$1 |
 | Key Vault | Standard | ~$1 |
 | **Total** | | **~$22-77/mês** |
