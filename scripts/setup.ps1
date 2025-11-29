@@ -255,6 +255,25 @@ if ([string]::IsNullOrEmpty($uaaAssignment)) {
 # ============================================================================
 Write-Step "Configurando OIDC para GitHub Actions..."
 
+# Debug: Verificar se as variáveis foram preservadas
+if ([string]::IsNullOrEmpty($gitHubRepo)) {
+    Write-Error "Variável gitHubRepo está vazia! Redetectando..."
+    $remoteUrl = git config --get remote.origin.url
+    if ($remoteUrl -match 'github\.com[:/](.+)/(.+?)(\.git)?$') {
+        $gitHubRepo = "$($matches[1])/$($matches[2])"
+        Write-Host "Repo redetectado: $gitHubRepo" -ForegroundColor Yellow
+    }
+}
+
+if ([string]::IsNullOrEmpty($currentBranch)) {
+    Write-Error "Variável currentBranch está vazia! Redetectando..."
+    $currentBranch = git branch --show-current
+    if ([string]::IsNullOrEmpty($currentBranch)) {
+        $currentBranch = "main"
+    }
+    Write-Host "Branch redetectado: $currentBranch" -ForegroundColor Yellow
+}
+
 $subject = "repo:$gitHubRepo:ref:refs/heads/$currentBranch"
 $credentialName = "github-oidc-$currentBranch"
 
