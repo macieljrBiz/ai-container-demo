@@ -37,21 +37,21 @@ jobs:
       - name: 🚀 Deploy Bicep Template
         id: deploy
         run: |
-          outputs=$(az deployment group create \
+          az deployment group create \
             --resource-group ${{ secrets.RESOURCE_GROUP }} \
             --template-file infrastructure/main.bicep \
             --parameters \
               acrName='${{ secrets.ACR_NAME }}' \
               containerAppName='${{ secrets.CONTAINER_APP_NAME }}' \
-              azureOpenAIName='${{ secrets.OPENAI_NAME }}' \
-            --query "properties.outputs" -o json)
-          
-          echo "outputs=$outputs" >> $GITHUB_OUTPUT
+              azureOpenAIName='${{ secrets.OPENAI_NAME }}'
 
       - name: 📊 Display Deployment Outputs
         run: |
           echo "=== Deployment Outputs ==="
-          echo "${{ steps.deploy.outputs.outputs }}" | jq .
+          az deployment group show \
+            --resource-group ${{ secrets.RESOURCE_GROUP }} \
+            --name main \
+            --query "properties.outputs" -o json | jq .
 
       - name: ✅ Deployment Complete
         run: |
