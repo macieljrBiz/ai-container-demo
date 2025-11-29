@@ -100,7 +100,7 @@ if (-not $ghInstalled) {
     Write-Host "  https://cli.github.com/" -ForegroundColor Cyan
     Write-Host ""
     Write-Host "Alternativamente, você pode configurar os secrets manualmente:" -ForegroundColor Yellow
-    Write-Host "  1. Vá para: https://github.com/$gitHubRepo/settings/secrets/actions" -ForegroundColor Cyan
+    Write-Host "  1. Vá para: https://github.com/$GitHubRepo/settings/secrets/actions" -ForegroundColor Cyan
     Write-Host "  2. Adicione os seguintes secrets:" -ForegroundColor Cyan
     Write-Host ""
     exit 1
@@ -128,10 +128,10 @@ Write-Success "Autenticado no GitHub"
 
 # Verificar permissões no repositório
 Write-Step "Verificando permissões no repositório..."
-$repoInfo = gh repo view $gitHubRepo --json viewerPermission,viewerCanAdminister 2>$null | ConvertFrom-Json
+$repoInfo = gh repo view $GitHubRepo --json viewerPermission,viewerCanAdminister 2>$null | ConvertFrom-Json
 
 if ($LASTEXITCODE -ne 0) {
-    Write-Error "Não foi possível acessar o repositório: $gitHubRepo"
+    Write-Error "Não foi possível acessar o repositório: $GitHubRepo"
     Write-Host "Certifique-se de que você tem permissão de acesso ao repositório." -ForegroundColor Yellow
     exit 1
 }
@@ -292,17 +292,17 @@ $identityClientId = az identity show --name $identityName --resource-group $Reso
 # ============================================================================
 # 9. CONFIGURAR GITHUB SECRETS
 # ============================================================================
-Write-Step "Configurando GitHub Secrets no repositório: $gitHubRepo"
+Write-Step "Configurando GitHub Secrets no repositório: $GitHubRepo"
 
 Write-Host "Criando/atualizando secrets..."
 
-gh secret set AZURE_TENANT_ID --body $tenantId --repo $gitHubRepo
-gh secret set AZURE_CLIENT_ID --body $appId --repo $gitHubRepo
-gh secret set AZURE_SUBSCRIPTION_ID --body $subscriptionId --repo $gitHubRepo
-gh secret set RESOURCE_GROUP --body $ResourceGroup --repo $gitHubRepo
-gh secret set CONTAINER_APP_NAME --body $ContainerAppName --repo $gitHubRepo
-gh secret set ACR_NAME --body $ACRName --repo $gitHubRepo
-gh secret set OPENAI_NAME --body $AzureOpenAIName --repo $gitHubRepo
+gh secret set AZURE_TENANT_ID --body $tenantId --repo $GitHubRepo
+gh secret set AZURE_CLIENT_ID --body $appId --repo $GitHubRepo
+gh secret set AZURE_SUBSCRIPTION_ID --body $subscriptionId --repo $GitHubRepo
+gh secret set RESOURCE_GROUP --body $ResourceGroup --repo $GitHubRepo
+gh secret set CONTAINER_APP_NAME --body $ContainerAppName --repo $GitHubRepo
+gh secret set ACR_NAME --body $ACRName --repo $GitHubRepo
+gh secret set OPENAI_NAME --body $AzureOpenAIName --repo $GitHubRepo
 
 Write-Success "Secrets configurados no GitHub!"
 
@@ -317,7 +317,7 @@ Write-Host ""
 Write-Host "Informações importantes:" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "GitHub Repository:" -ForegroundColor White
-Write-Host "  Repository: $gitHubRepo" -ForegroundColor Gray
+Write-Host "  Repository: $GitHubRepo" -ForegroundColor Gray
 Write-Host "  Branch: $currentBranch" -ForegroundColor Gray
 Write-Host "  OIDC Subject: $subject" -ForegroundColor Gray
 Write-Host ""
@@ -336,7 +336,7 @@ Write-Host "  Resource Group: $ResourceGroup" -ForegroundColor Gray
 Write-Host "  Location: $Location" -ForegroundColor Gray
 Write-Host ""
 Write-Host "Próximos passos:" -ForegroundColor Cyan
-Write-Host "1. Acesse: https://github.com/$gitHubRepo/actions" -ForegroundColor White
+Write-Host "1. Acesse: https://github.com/$GitHubRepo/actions" -ForegroundColor White
 Write-Host "2. Execute o workflow '1️⃣ Deploy Infrastructure'" -ForegroundColor White
 Write-Host "3. Aguarde e depois execute '2️⃣ Build and Deploy App'" -ForegroundColor White
 Write-Host ""
