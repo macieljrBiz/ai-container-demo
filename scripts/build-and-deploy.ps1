@@ -1,25 +1,34 @@
 # ============================================================================
-# Build and Deploy - Azure Container Demo
+# Setup Azure Infrastructure - AI Container Demo
 # ============================================================================
-# Este script faz o build das imagens no ACR e deploy completo da infraestrutura
-# Pode ser executado localmente ou no Azure Cloud Shell
+# Este script configura Service Principal, OIDC, Managed Identity e GitHub Secrets
+# Executar UMA VEZ para configurar a infraestrutura inicial
 # ============================================================================
 
 param(
-    [Parameter(Mandatory=$false)]
-    [string]$ResourceGroup = "rg-ai-container-demo",
+    [Parameter(Mandatory=$true)]
+    [string]$ResourceGroup,
+    
+    [Parameter(Mandatory=$true)]
+    [string]$Location,
+    
+    [Parameter(Mandatory=$true)]
+    [string]$ACRName,
+    
+    [Parameter(Mandatory=$true)]
+    [string]$ContainerAppName,
+    
+    [Parameter(Mandatory=$true)]
+    [string]$AzureOpenAIName,
     
     [Parameter(Mandatory=$false)]
-    [string]$Location = "eastus",
+    [string]$GitHubRepo = "AndressaSiqueira/ai-container-demo",
     
     [Parameter(Mandatory=$false)]
-    [string]$ACRName = "acraicondemo",
-    
-    [Parameter(Mandatory=$false)]
-    [string]$ContainerAppName = "ai-container-app"
+    [string]$GitHubBranch = "main"
 )
 
-# Cores para output
+# Funcoes de output
 function Write-Step {
     param([string]$Message)
     Write-Host "`n==> $Message" -ForegroundColor Cyan
@@ -30,224 +39,222 @@ function Write-Success {
     Write-Host "[OK] $Message" -ForegroundColor Green
 }
 
-function Write-ErrorMsg {
+function Write-Error {
     param([string]$Message)
     Write-Host "[ERRO] $Message" -ForegroundColor Red
 }
 
 # ============================================================================
-# 1. VERIFICAR SUBSCRIPTION
+# 1. VERIFICAR AZURE CLI E LOGIN
 # ============================================================================
-Write-Step "Verificando subscription Azure..."
-$subscription = az account show --query name -o tsv
+Write-Step "Verificando Azure CLI..."
+$subscription = az account show --query "{name:name, id:id, tenantId:tenantId}" -o json 2>$null | ConvertFrom-Json
+
 if ($LASTEXITCODE -ne 0) {
-    Write-ErrorMsg "Nao conectado ao Azure. Execute: az login"
+    Write-Error "Nao conectado ao Azure. Execute: az login"
     exit 1
 }
-Write-Success "Usando subscription: $subscription"
+
+$subscriptionId = $subscription.id
+$tenantId = $subscription.tenantId
+Write-Success "Subscription: $($subscription.name) ($subscriptionId)"
+Write-Success "Tenant ID: $tenantId"
 
 # ============================================================================
-# 2. CRIAR RESOURCE GROUP (se nao existir)
+# 2. CRIAR RESOURCE GROUP
 # ============================================================================
-Write-Step "Verificando Resource Group..."
+Write-Step "Criando Resource Group..."
 $rgExists = az group exists --name $ResourceGroup
+
 if ($rgExists -eq "false") {
-    Write-Host "Criando Resource Group $ResourceGroup..."
     az group create --name $ResourceGroup --location $Location --output none
-    Write-Success "Resource Group criado"
+    Write-Success "Resource Group criado: $ResourceGroup"
 } else {
-    Write-Success "Resource Group ja existe"
+    Write-Success "Resource Group ja existe: $ResourceGroup"
 }
 
 # ============================================================================
-# 3. CRIAR AZURE CONTAINER REGISTRY (se nao existir)
+# 3. CRIAR SERVICE PRINCIPAL PARA GITHUB ACTIONS (OIDC)
 # ============================================================================
-Write-Step "Verificando Azure Container Registry..."
-$acrExists = az acr show --name $ACRName --resource-group $ResourceGroup 2>$null
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "Criando Azure Container Registry $ACRName..."
-    az acr create `
-        --resource-group $ResourceGroup `
-        --name $ACRName `
-        --sku Basic `
-        --admin-enabled true `
-        --output none
-    Write-Success "ACR criado"
+Write-Step "Criando Service Principal para GitHub Actions..."
+
+$appName = "sp-github-$ResourceGroup"
+$existingApp = az ad app list --display-name $appName --query "[0].appId" -o tsv 2>$null
+
+if ([string]::IsNullOrEmpty($existingApp)) {
+    Write-Host "Criando novo App Registration..."
+    $appId = az ad app create --display-name $appName --query appId -o tsv
+    Write-Success "App criado: $appId"
 } else {
-    Write-Success "ACR ja existe"
+    $appId = $existingApp
+    Write-Success "App ja existe: $appId"
 }
 
-# Pegar login server do ACR
-$acrLoginServer = az acr show --name $ACRName --query loginServer -o tsv
-Write-Success "ACR Login Server: $acrLoginServer"
-
-# ============================================================================
-# 4. BUILD IMAGEM CONTAINER APP NO ACR
-# ============================================================================
-Write-Step "Fazendo build da imagem Container App no ACR..."
-Write-Host "Isso pode levar alguns minutos (build acontece na nuvem)..."
-
-az acr build `
-    --registry $ACRName `
-    --image "ai-container-app:latest" `
-    --image "ai-container-app:$(Get-Date -Format 'yyyyMMdd-HHmmss')" `
-    --file "../container-app/Dockerfile" `
-    ../container-app
-
-if ($LASTEXITCODE -ne 0) {
-    Write-ErrorMsg "Falha no build da imagem Container App"
-    exit 1
+# Criar Service Principal se nao existir
+$spExists = az ad sp show --id $appId --query appId -o tsv 2>$null
+if ([string]::IsNullOrEmpty($spExists)) {
+    az ad sp create --id $appId --output none
+    Write-Success "Service Principal criado"
 }
-Write-Success "Imagem Container App criada com sucesso"
+
+# Obter Object ID do Service Principal
+$spObjectId = az ad sp show --id $appId --query id -o tsv
 
 # ============================================================================
-# 5. BUILD IMAGEM AZURE FUNCTIONS NO ACR
+# 4. ATRIBUIR ROLES AO SERVICE PRINCIPAL
 # ============================================================================
-Write-Step "Fazendo build da imagem Azure Functions no ACR..."
-Write-Host "Isso pode levar alguns minutos (build acontece na nuvem)..."
+Write-Step "Atribuindo roles ao Service Principal..."
 
-az acr build `
-    --registry $ACRName `
-    --image "ai-functions:latest" `
-    --image "ai-functions:$(Get-Date -Format 'yyyyMMdd-HHmmss')" `
-    --file "../azure-functions/Dockerfile" `
-    ../azure-functions
+# Contributor role
+az role assignment create `
+    --assignee $appId `
+    --role Contributor `
+    --scope "/subscriptions/$subscriptionId/resourceGroups/$ResourceGroup" `
+    --output none
 
-if ($LASTEXITCODE -ne 0) {
-    Write-ErrorMsg "Falha no build da imagem Azure Functions"
-    exit 1
+# User Access Administrator role (necessario para criar role assignments)
+az role assignment create `
+    --assignee $appId `
+    --role "User Access Administrator" `
+    --scope "/subscriptions/$subscriptionId/resourceGroups/$ResourceGroup" `
+    --output none
+
+Write-Success "Roles atribuidas: Contributor + User Access Administrator"
+
+# ============================================================================
+# 5. CONFIGURAR OIDC (FEDERATED CREDENTIAL)
+# ============================================================================
+Write-Step "Configurando OIDC para GitHub Actions..."
+
+$subject = "repo:$GitHubRepo:ref:refs/heads/$GitHubBranch"
+$credentialName = "github-oidc-$GitHubBranch"
+
+# Verificar se ja existe
+$existingCred = az ad app federated-credential list --id $appId --query "[?name=='$credentialName'].name" -o tsv 2>$null
+
+if ([string]::IsNullOrEmpty($existingCred)) {
+    Write-Host "Criando federated credential..."
+    
+    # Criar JSON temporario para evitar problemas de parsing
+    $oidcParams = @{
+        name = $credentialName
+        issuer = "https://token.actions.githubusercontent.com"
+        subject = $subject
+        audiences = @("api://AzureADTokenExchange")
+    }
+    
+    $tempFile = [System.IO.Path]::GetTempFileName()
+    $oidcParams | ConvertTo-Json | Set-Content -Path $tempFile -Encoding UTF8
+    
+    az ad app federated-credential create --id $appId --parameters "@$tempFile" --output none
+    Remove-Item $tempFile
+    
+    Write-Success "OIDC configurado para: $subject"
+} else {
+    Write-Success "OIDC ja configurado"
 }
-Write-Success "Imagem Azure Functions criada com sucesso"
 
 # ============================================================================
-# 6. LISTAR IMAGENS NO ACR
+# 6. CRIAR MANAGED IDENTITY PARA CONTAINER APP
 # ============================================================================
-Write-Step "Imagens disponiveis no ACR:"
-az acr repository list --name $ACRName --output table
-Write-Host ""
-Write-Host "Tags da imagem ai-container-app:"
-az acr repository show-tags --name $ACRName --repository ai-container-app --output table
-Write-Host ""
-Write-Host "Tags da imagem ai-functions:"
-az acr repository show-tags --name $ACRName --repository ai-functions --output table
-
-# ============================================================================
-# 7. CRIAR MANAGED IDENTITY (antes do deploy)
-# ============================================================================
-Write-Step "Criando Managed Identity para Container App..."
+Write-Step "Criando Managed Identity..."
 
 $identityName = "id-$ContainerAppName"
-$identityExists = az identity show --name $identityName --resource-group $ResourceGroup 2>$null
+$identityExists = az identity show --name $identityName --resource-group $ResourceGroup --query id -o tsv 2>$null
 
-if ($LASTEXITCODE -ne 0) {
+if ([string]::IsNullOrEmpty($identityExists)) {
     az identity create `
         --name $identityName `
         --resource-group $ResourceGroup `
+        --location $Location `
         --output none
     Write-Success "Managed Identity criada: $identityName"
 } else {
     Write-Success "Managed Identity ja existe: $identityName"
 }
 
-# ============================================================================
-# 8. DEPLOY INFRAESTRUTURA COMPLETA (Bicep)
-# ============================================================================
-Write-Step "Fazendo deploy da infraestrutura completa com Bicep..."
-Write-Host "Isso pode levar alguns minutos..."
-
-# Gerar nome unico para Azure OpenAI
-$uniqueSuffix = (Get-Random -Minimum 1000 -Maximum 9999)
-$azureOpenAIName = "aoai-demo-$uniqueSuffix"
-
-# Deploy com Bicep
-az deployment group create `
-    --resource-group $ResourceGroup `
-    --template-file "../infrastructure/main.bicep" `
-    --parameters `
-        acrName=$ACRName `
-        containerAppName=$ContainerAppName `
-        azureOpenAIName=$azureOpenAIName `
-    --output json | Out-File -FilePath "deployment-output.json"
-
-if ($LASTEXITCODE -ne 0) {
-    Write-ErrorMsg "Falha no deploy da infraestrutura"
-    exit 1
-}
-
-# Ler outputs do deployment
-$deploymentOutput = Get-Content "deployment-output.json" | ConvertFrom-Json
-$acrLoginServer = $deploymentOutput.properties.outputs.acrLoginServer.value
-$AzureOpenAIEndpoint = $deploymentOutput.properties.outputs.azureOpenAIEndpoint.value
-$AzureOpenAIDeployment = $deploymentOutput.properties.outputs.azureOpenAIDeployment.value
-$aiFoundryUrl = $deploymentOutput.properties.outputs.aiFoundryPortalUrl.value
-
-Write-Success "Infraestrutura deployada com sucesso"
-Write-Host "  Azure OpenAI: $AzureOpenAIEndpoint" -ForegroundColor Gray
-Write-Host "  Model Deployment: $AzureOpenAIDeployment" -ForegroundColor Gray
-Write-Host "  AI Foundry: $aiFoundryUrl" -ForegroundColor Gray
+$identityId = az identity show --name $identityName --resource-group $ResourceGroup --query id -o tsv
+$identityClientId = az identity show --name $identityName --resource-group $ResourceGroup --query clientId -o tsv
 
 # ============================================================================
-# 9. ATUALIZAR CONTAINER APP COM IMAGEM DO ACR
+# 7. CONFIGURAR GITHUB SECRETS
 # ============================================================================
-Write-Step "Atualizando Container App com a imagem do ACR..."
+Write-Step "Configurando GitHub Secrets..."
 
-az containerapp update `
-    --name $ContainerAppName `
-    --resource-group $ResourceGroup `
-    --image "$acrLoginServer/ai-container-app:latest" `
-    --output none
-
-if ($LASTEXITCODE -ne 0) {
-    Write-ErrorMsg "Falha ao atualizar Container App"
-    exit 1
-}
-Write-Success "Container App atualizado com sucesso"
-
-# ============================================================================
-# 10. OBTER URLS DOS RECURSOS
-# ============================================================================
-Write-Step "Informacoes dos recursos deployados:"
-
-# Container App URL
-$containerAppUrl = az containerapp show `
-    --name $ContainerAppName `
-    --resource-group $ResourceGroup `
-    --query properties.configuration.ingress.fqdn -o tsv
-
-if (-not [string]::IsNullOrEmpty($containerAppUrl)) {
+# Verificar se gh CLI esta instalado e autenticado
+$ghInstalled = Get-Command gh -ErrorAction SilentlyContinue
+if (-not $ghInstalled) {
+    Write-Host "GitHub CLI (gh) nao encontrado." -ForegroundColor Yellow
+    Write-Host "Instale em: https://cli.github.com/" -ForegroundColor Yellow
     Write-Host ""
-    Write-Host "Container App URL:" -ForegroundColor Cyan
-    Write-Host "   https://$containerAppUrl" -ForegroundColor Green
+    Write-Host "Secrets para configurar manualmente:" -ForegroundColor Cyan
+    Write-Host "AZURE_TENANT_ID=$tenantId"
+    Write-Host "AZURE_CLIENT_ID=$appId"
+    Write-Host "AZURE_SUBSCRIPTION_ID=$subscriptionId"
+    Write-Host "RESOURCE_GROUP=$ResourceGroup"
+    Write-Host "CONTAINER_APP_NAME=$ContainerAppName"
+    Write-Host "ACR_NAME=$ACRName"
+    Write-Host "OPENAI_NAME=$AzureOpenAIName"
+} else {
+    # Verificar autenticacao do gh
+    $authStatus = gh auth status 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "GitHub CLI nao autenticado. Execute: gh auth login" -ForegroundColor Yellow
+        gh auth login
+        
+        # Verificar novamente
+        $authStatus = gh auth status 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "Falha na autenticacao do GitHub CLI"
+            exit 1
+        }
+    }
+    
+    Write-Host "Criando/atualizando secrets no GitHub..."
+    
+    gh secret set AZURE_TENANT_ID --body $tenantId --repo $GitHubRepo
+    gh secret set AZURE_CLIENT_ID --body $appId --repo $GitHubRepo
+    gh secret set AZURE_SUBSCRIPTION_ID --body $subscriptionId --repo $GitHubRepo
+    gh secret set RESOURCE_GROUP --body $ResourceGroup --repo $GitHubRepo
+    gh secret set CONTAINER_APP_NAME --body $ContainerAppName --repo $GitHubRepo
+    gh secret set ACR_NAME --body $ACRName --repo $GitHubRepo
+    gh secret set OPENAI_NAME --body $AzureOpenAIName --repo $GitHubRepo
+    
+    Write-Success "Secrets configurados no GitHub"
 }
 
-# ACR Repositories
-Write-Host ""
-Write-Host "Container Registry:" -ForegroundColor Cyan
-Write-Host "   $acrLoginServer" -ForegroundColor Green
-Write-Host "   - ai-container-app:latest" -ForegroundColor Gray
-Write-Host "   - ai-functions:latest" -ForegroundColor Gray
-
-# Azure OpenAI
-Write-Host ""
-Write-Host "Azure OpenAI:" -ForegroundColor Cyan
-Write-Host "   Endpoint: $AzureOpenAIEndpoint" -ForegroundColor Green
-Write-Host "   Deployment: $AzureOpenAIDeployment" -ForegroundColor Green
-
-# AI Foundry Portal
-Write-Host ""
-Write-Host "AI Foundry Portal:" -ForegroundColor Cyan
-Write-Host "   $aiFoundryUrl" -ForegroundColor Green
-
 # ============================================================================
-# FINALIZADO
+# RESUMO FINAL
 # ============================================================================
 Write-Host ""
 Write-Host "============================================================================" -ForegroundColor Green
-Write-Host "DEPLOY COMPLETO!" -ForegroundColor Green
+Write-Host "CONFIGURACAO CONCLUIDA COM SUCESSO!" -ForegroundColor Green
 Write-Host "============================================================================" -ForegroundColor Green
+Write-Host ""
+Write-Host "Informacoes importantes:" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "Service Principal:" -ForegroundColor White
+Write-Host "  Client ID: $appId" -ForegroundColor Gray
+Write-Host "  Object ID: $spObjectId" -ForegroundColor Gray
+Write-Host ""
+Write-Host "Managed Identity:" -ForegroundColor White
+Write-Host "  Name: $identityName" -ForegroundColor Gray
+Write-Host "  Client ID: $identityClientId" -ForegroundColor Gray
+Write-Host "  Resource ID: $identityId" -ForegroundColor Gray
+Write-Host ""
+Write-Host "Azure Resources:" -ForegroundColor White
+Write-Host "  Subscription: $subscriptionId" -ForegroundColor Gray
+Write-Host "  Tenant: $tenantId" -ForegroundColor Gray
+Write-Host "  Resource Group: $ResourceGroup" -ForegroundColor Gray
+Write-Host "  Location: $Location" -ForegroundColor Gray
+Write-Host ""
+Write-Host "GitHub:" -ForegroundColor White
+Write-Host "  Repository: $GitHubRepo" -ForegroundColor Gray
+Write-Host "  Branch: $GitHubBranch" -ForegroundColor Gray
+Write-Host "  OIDC Subject: $subject" -ForegroundColor Gray
 Write-Host ""
 Write-Host "Proximos passos:" -ForegroundColor Cyan
-Write-Host "1. Acesse a URL do Container App para testar" -ForegroundColor White
-Write-Host "2. Verifique os logs no Azure Portal" -ForegroundColor White
-Write-Host "3. Configure alertas e monitoramento conforme necessario" -ForegroundColor White
+Write-Host "1. Execute o workflow 'Deploy Infrastructure' no GitHub Actions" -ForegroundColor White
+Write-Host "2. Aguarde o deploy do Bicep (ACR, OpenAI, AI Hub/Project, Container App)" -ForegroundColor White
+Write-Host "3. O workflow 'Build and Deploy App' sera acionado automaticamente" -ForegroundColor White
 Write-Host ""
