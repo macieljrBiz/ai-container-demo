@@ -1,8 +1,11 @@
 # ============================================================================
-# Setup para Repositórios Forked/Clonados - AI Container Demo
+# Setup Azure + GitHub - AI Container Demo
 # ============================================================================
-# Este script detecta automaticamente seu repositório GitHub e configura
-# todos os secrets necessários para o GitHub Actions funcionar.
+# Este script automatiza toda a configuração necessária:
+# - Detecta seu repositório GitHub automaticamente
+# - Cria Service Principal e OIDC no Azure
+# - Cria Managed Identity
+# - Configura GitHub Secrets
 # ============================================================================
 
 param(

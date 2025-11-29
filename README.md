@@ -54,8 +54,7 @@ ai-container-demo/
 │   └── build-and-deploy-app.yml
 │
 └── scripts/
-    ├── setup-forked-repo.ps1      # Setup automático
-    └── build-and-deploy.ps1
+    └── setup.ps1           # Setup automático (Azure + GitHub)
 ```
 
 ---
@@ -94,64 +93,63 @@ uvicorn main:app --reload --port 8000
 
 ### Opção 2: Deploy no Azure (Produção)
 
-#### Pré-requisito: Fork ou Clone
+#### Passo 1: Fork ou Clone
 
-> ⚠️ **IMPORTANTE:** GitHub Secrets não são copiados em forks!
+**Você precisa ter o código na sua conta GitHub para usar GitHub Actions.**
 
-**Escolha uma opção:**
+Escolha uma opção:
 
-- **Fork:** Clique em "Fork" no GitHub → cria cópia na sua conta
-- **Clone:** Apenas baixa o código (você precisará criar um repo novo)
+- **Fork** no GitHub (recomendado): Clique em "Fork" → cria uma cópia na sua conta
+- **Clone + Push**: Baixe o código e suba para um repositório novo seu
 
 ```bash
 # Se fez fork:
 git clone https://github.com/SEU-USUARIO/ai-container-demo.git
 cd ai-container-demo
 
-# Se clonou direto, crie um repo novo no GitHub e:
-git remote set-url origin https://github.com/SEU-USUARIO/seu-repo.git
+# Se clonou e quer criar repo novo:
+# 1. Crie um repo novo no GitHub
+# 2. Mude o remote:
+git remote set-url origin https://github.com/SEU-USUARIO/novo-repo.git
+git push -u origin main
 ```
 
 ---
 
-#### Passo 1: Configurar Secrets do GitHub
+#### Passo 2: Configurar Azure e GitHub
+
+> 💡 **O script faz tudo automaticamente:** detecta seu repositório, cria credenciais no Azure e configura secrets no GitHub.
 
 **Pré-requisitos:**
-- Azure CLI: `az login`
-- GitHub CLI: `gh auth login`
+- `az login` (Azure CLI autenticado)
+- `gh auth login` (GitHub CLI autenticado)  
 - PowerShell 7+
 
-**Execute o script automático:**
+**Execute:**
 
 ```powershell
 cd scripts
 
-.\setup-forked-repo.ps1 `
+.\setup.ps1 `
   -ResourceGroup "rg-ai-demo" `
   -Location "eastus" `
-  -ACRName "acrdemo$(Get-Random -Maximum 9999)" `
+  -ACRName "acr$(Get-Random -Maximum 9999)" `
   -ContainerAppName "ai-chat-app" `
   -AzureOpenAIName "openai-demo"
 ```
 
-**O script faz:**
-1. Detecta seu repositório automaticamente
-2. Cria Service Principal com OIDC
-3. Cria Managed Identity
-4. Configura 7 secrets no GitHub:
-   - AZURE_TENANT_ID
-   - AZURE_CLIENT_ID
-   - AZURE_SUBSCRIPTION_ID
-   - RESOURCE_GROUP
-   - CONTAINER_APP_NAME
-   - ACR_NAME
-   - OPENAI_NAME
+**O que o script faz:**
+1. ✅ Detecta automaticamente seu repositório GitHub
+2. ✅ Cria Service Principal no Azure (autenticação OIDC)
+3. ✅ Cria Managed Identity para o Container App
+4. ✅ Configura permissões (RBAC)
+5. ✅ Cria 7 GitHub Secrets automaticamente no seu repo
 
 ⏱️ Tempo: ~2 minutos
 
 ---
 
-#### Passo 2: Deploy da Infraestrutura
+#### Passo 3: Deploy da Infraestrutura
 
 1. Acesse: `https://github.com/SEU-USUARIO/ai-container-demo/actions`
 2. Clique em **"1️⃣ Deploy Infrastructure"**
@@ -169,9 +167,9 @@ cd scripts
 
 ---
 
-#### Passo 3: Deploy da Aplicação
+#### Passo 4: Deploy da Aplicação
 
-⏱️ Aguarde 2 minutos após o Passo 2
+⏱️ Aguarde 2 minutos após o Passo 3
 
 1. No GitHub Actions, clique em **"2️⃣ Build and Deploy Container App"**
 2. Clique em **"Run workflow"** → **"Run workflow"**
@@ -186,7 +184,7 @@ cd scripts
 
 ---
 
-#### Passo 4: Acesse sua App
+#### Passo 5: Acesse sua App
 
 No log do workflow, você verá:
 
@@ -218,7 +216,7 @@ curl -X POST https://sua-app.azurecontainerapps.io/responses \
 ## 🐛 Problemas Comuns
 
 **❌ GitHub Actions falha: "OIDC token is not valid"**
-- Execute o script `setup-forked-repo.ps1` novamente
+- Execute o script `setup.ps1` novamente
 
 **❌ Container App não inicia**
 - Aguarde 5 minutos (propagação de permissões)
