@@ -2,10 +2,9 @@
 # Setup Azure + GitHub - AI Container Demo
 # ============================================================================
 # Este script automatiza toda a configuração necessária:
-# - Detecta seu repositório GitHub automaticamente
 # - Cria Service Principal e OIDC no Azure
 # - Cria Managed Identity
-# - Configura GitHub Secrets
+# - Configura GitHub Secrets no seu repositório
 # ============================================================================
 
 param(
@@ -22,7 +21,10 @@ param(
     [string]$ContainerAppName,
     
     [Parameter(Mandatory=$true)]
-    [string]$AzureOpenAIName
+    [string]$AzureOpenAIName,
+    
+    [Parameter(Mandatory=$true)]
+    [string]$GitHubRepo  # Formato: "USUARIO/REPOSITORIO" (ex: "AndressaSiqueira/ai-container-demo")
 )
 
 # Funções de output
@@ -47,51 +49,24 @@ function Write-Warning {
 }
 
 # ============================================================================
-# 1. DETECTAR REPOSITÓRIO GITHUB ATUAL
+# 1. VALIDAR PARÂMETROS
 # ============================================================================
-Write-Step "Detectando repositório GitHub..."
+Write-Step "Validando parâmetros..."
 
-# Ir para a raiz do repositório (caso esteja em subpasta)
-$scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
-$repoRoot = git -C $scriptPath rev-parse --show-toplevel 2>$null
-
-if ($LASTEXITCODE -eq 0 -and $repoRoot) {
-    Push-Location $repoRoot
-    Write-Host "Mudando para raiz do repositório: $repoRoot" -ForegroundColor Gray
-}
-
-# Verificar se está em um repositório Git
-$gitCheck = git rev-parse --is-inside-work-tree 2>$null
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "Este diretório não é um repositório Git!"
-    Write-Host "Por favor, execute este script de dentro do repositório clonado." -ForegroundColor Yellow
+# Validar formato do GitHubRepo
+if ($GitHubRepo -notmatch '^[a-zA-Z0-9_-]+/[a-zA-Z0-9_.-]+$') {
+    Write-Error "Formato inválido de GitHubRepo. Use: USUARIO/REPOSITORIO"
+    Write-Host "Exemplo: -GitHubRepo 'AndressaSiqueira/ai-container-demo'" -ForegroundColor Yellow
     exit 1
 }
 
-# Obter URL remota
-$remoteUrl = git config --get remote.origin.url
-if ([string]::IsNullOrEmpty($remoteUrl)) {
-    Write-Error "Não foi possível detectar a URL remota do repositório!"
-    exit 1
-}
+Write-Success "Repositório: $GitHubRepo"
 
-# Extrair owner/repo da URL (suporta HTTPS e SSH)
-if ($remoteUrl -match 'github\.com[:/](.+)/(.+?)(\.git)?$') {
-    $repoOwner = $matches[1]
-    $repoName = $matches[2]
-    $gitHubRepo = "$repoOwner/$repoName"
-    
-    Write-Success "Repositório detectado: $gitHubRepo"
-} else {
-    Write-Error "URL remota não é do GitHub: $remoteUrl"
-    exit 1
-}
-
-# Detectar branch atual
-$currentBranch = git branch --show-current
+# Detectar branch atual (se estiver em um repositório Git)
+$currentBranch = git branch --show-current 2>$null
 if ([string]::IsNullOrEmpty($currentBranch)) {
     $currentBranch = "main"
-    Write-Warning "Não foi possível detectar branch. Usando padrão: main"
+    Write-Warning "Branch não detectado. Usando padrão: main"
 } else {
     Write-Success "Branch atual: $currentBranch"
 }
@@ -255,26 +230,7 @@ if ([string]::IsNullOrEmpty($uaaAssignment)) {
 # ============================================================================
 Write-Step "Configurando OIDC para GitHub Actions..."
 
-# Debug: Verificar se as variáveis foram preservadas
-if ([string]::IsNullOrEmpty($gitHubRepo)) {
-    Write-Error "Variável gitHubRepo está vazia! Redetectando..."
-    $remoteUrl = git config --get remote.origin.url
-    if ($remoteUrl -match 'github\.com[:/](.+)/(.+?)(\.git)?$') {
-        $gitHubRepo = "$($matches[1])/$($matches[2])"
-        Write-Host "Repo redetectado: $gitHubRepo" -ForegroundColor Yellow
-    }
-}
-
-if ([string]::IsNullOrEmpty($currentBranch)) {
-    Write-Error "Variável currentBranch está vazia! Redetectando..."
-    $currentBranch = git branch --show-current
-    if ([string]::IsNullOrEmpty($currentBranch)) {
-        $currentBranch = "main"
-    }
-    Write-Host "Branch redetectado: $currentBranch" -ForegroundColor Yellow
-}
-
-$subject = "repo:$gitHubRepo:ref:refs/heads/$currentBranch"
+$subject = "repo:$GitHubRepo:ref:refs/heads/$currentBranch"
 $credentialName = "github-oidc-$currentBranch"
 
 # Verificar se já existe e se o subject está correto

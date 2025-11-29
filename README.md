@@ -129,6 +129,7 @@ git push -u origin main
 
 ```powershell
 .\scripts\setup.ps1 `
+  -GitHubRepo "SEU-USUARIO/SEU-REPO" `
   -ResourceGroup "rg-ai-demo" `
   -Location "eastus" `
   -ACRName "acr$(Get-Random -Maximum 9999)" `
@@ -136,8 +137,13 @@ git push -u origin main
   -AzureOpenAIName "openai-demo"
 ```
 
+> **Exemplo:** Se você fez fork para `AndressaSiqueira/ai-container-demo`, use:
+> ```powershell
+> .\scripts\setup.ps1 -GitHubRepo "AndressaSiqueira/ai-container-demo" ...
+> ```
+
 **O que o script faz:**
-1. ✅ Detecta automaticamente seu repositório GitHub
+1. ✅ Valida o formato do repositório GitHub informado
 2. ✅ Cria Service Principal no Azure (autenticação OIDC)
 3. ✅ Cria Managed Identity para o Container App
 4. ✅ Configura permissões (RBAC)
