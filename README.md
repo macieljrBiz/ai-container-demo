@@ -125,7 +125,7 @@ git push -u origin main
 - `gh auth login` (GitHub CLI autenticado)  
 - PowerShell 7+
 
-**Execute:**
+**Execute (de qualquer pasta do repositório):**
 
 ```powershell
 .\scripts\setup.ps1 `
