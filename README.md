@@ -142,8 +142,13 @@ Você verá a interface de chat para interagir com o Azure OpenAI.
 ### Opção 2: Deploy Completo no Azure (Produção)
 
 Este é o caminho recomendado para produção, usando CI/CD automatizado.
+#### 1. Clone o repositório
+```powershell
+# Abra PowerShell 7+ como Administrador
+git clone https://github.com/AndressaSiqueira/ai-container-demo.git
+```
 
-#### **Passo 1: Configure a Infraestrutura Azure e GitHub Secrets**
+#### **2: Configure a Infraestrutura Azure e GitHub Secrets**
 
 Execute o script de setup **uma única vez**:
 
@@ -179,7 +184,7 @@ cd ai-container-demo/scripts
 
 ---
 
-#### **Passo 2: Execute o Workflow de Deploy da Infraestrutura**
+#### **3: Execute o Workflow de Deploy da Infraestrutura**
 
 1. Acesse seu repositório no GitHub:
    ```
@@ -206,7 +211,7 @@ cd ai-container-demo/scripts
 
 ---
 
-#### **Passo 3: Execute o Workflow de Build e Deploy da Aplicação**
+#### **4: Execute o Workflow de Build e Deploy da Aplicação**
 
 ⏱️ **Aguarde 2-3 minutos** após o Passo 2 para propagação das permissões Azure RBAC.
 
@@ -229,7 +234,7 @@ cd ai-container-demo/scripts
 
 ---
 
-#### **Passo 4: Acesse sua Aplicação**
+#### **Passo 5: Acesse sua Aplicação**
 
 Após a conclusão do workflow, você verá no log:
 
@@ -496,6 +501,7 @@ Este projeto é uma demo educacional por Andressa Siqueira e Vicente Maciel.
 ---
 
 **Desenvolvido com ❤️ por Andressa Siqueira e Vicente Maciel**
+
 
 
 
